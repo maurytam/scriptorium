@@ -21,6 +21,7 @@ export class UploadComponent {
 
   readonly acceptedTypes = '.pdf,.docx,.xlsx,.txt';
   readonly selectedFile = signal<File | null>(null);
+  readonly isPrivate = signal(false);
   readonly state = signal<UploadState>('idle');
   readonly uploadPercent = signal(0);
   readonly result = signal<DocumentDetails | null>(null);
@@ -53,6 +54,10 @@ export class UploadComponent {
     this.errorMessage.set(null);
   }
 
+  onPrivateChanged(event: Event): void {
+    this.isPrivate.set((event.target as HTMLInputElement).checked);
+  }
+
   submit(): void {
     const file = this.selectedFile();
     if (!file || this.tooLargeMessage()) {
@@ -62,7 +67,7 @@ export class UploadComponent {
     this.uploadPercent.set(0);
     this.state.set('uploading');
     this.api
-      .upload(file)
+      .upload(file, this.isPrivate())
       .pipe(
         tap((event) => event.kind === 'progress' && this.uploadPercent.set(event.percent)),
         filter((event): event is UploadCompleted => event.kind === 'completed'),

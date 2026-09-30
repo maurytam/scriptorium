@@ -132,6 +132,32 @@ public sealed class DocumentUploadEndpointTests : IDisposable
         (await WaitForTerminalStatusAsync(nextId)).GetProperty("status").GetString().Should().Be("ready");
     }
 
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData(null, false)]
+    public async Task Upload_IsPrivateField_RoundTripsThroughGetById(string? field, bool expected)
+    {
+        var response = await UploadAsync("notes.txt", SampleDocuments.Txt("secret"), field);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        var accepted = await ReadJsonAsync(response);
+        accepted.GetProperty("isPrivate").GetBoolean().Should().Be(expected);
+
+        var id = accepted.GetProperty("id").GetGuid();
+        var details = await ReadJsonAsync(await _client.GetAsync($"/api/documents/{id}"));
+        details.GetProperty("isPrivate").GetBoolean().Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task Upload_InvalidIsPrivateValue_ReturnsBadRequest()
+    {
+        var response = await UploadAsync("notes.txt", SampleDocuments.Txt("x"), "maybe");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        StoredDocumentFolders().Should().BeEmpty();
+    }
+
     [Fact]
     public async Task GetLimits_ReturnsConfiguredMaxSize()
     {
@@ -159,9 +185,14 @@ public sealed class DocumentUploadEndpointTests : IDisposable
         _ => SampleDocuments.Txt(text)
     };
 
-    private Task<HttpResponseMessage> UploadAsync(string fileName, byte[] bytes)
+    private Task<HttpResponseMessage> UploadAsync(string fileName, byte[] bytes, string? isPrivate = null)
     {
         var form = new MultipartFormDataContent { { new ByteArrayContent(bytes), "file", fileName } };
+        if (isPrivate is not null)
+        {
+            form.Add(new StringContent(isPrivate), "isPrivate");
+        }
+
         return _client.PostAsync("/api/documents", form);
     }
 

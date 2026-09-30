@@ -30,7 +30,10 @@ public static class DocumentEndpoints
     }
 
     private static async Task<IResult> UploadAsync(
-        IFormFile? file, DocumentUploadService uploadService, CancellationToken ct)
+        IFormFile? file,
+        DocumentUploadService uploadService,
+        CancellationToken ct,
+        [FromForm] bool isPrivate = false)
     {
         if (file is null)
         {
@@ -38,7 +41,7 @@ public static class DocumentEndpoints
         }
 
         await using var content = file.OpenReadStream();
-        var result = await uploadService.UploadAsync(content, file.FileName, file.Length, isPrivate: false, ct);
+        var result = await uploadService.UploadAsync(content, file.FileName, file.Length, isPrivate, ct);
 
         return result.IsSuccess
             ? Results.Accepted($"/api/documents/{result.Document.Id}", UploadedDocumentDto.From(result.Document))
