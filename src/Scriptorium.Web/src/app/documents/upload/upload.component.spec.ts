@@ -1,8 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { NEVER, Subject, of, throwError } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
-import { DocumentDetails } from '../document.models';
+import { DocumentDetails, UploadEvent } from '../document.models';
 import { UploadComponent } from './upload.component';
 
 const document = (status: DocumentDetails['status'], failureReason: string | null = null): DocumentDetails => ({
@@ -16,13 +17,16 @@ const document = (status: DocumentDetails['status'], failureReason: string | nul
   failureReason,
 });
 
+const completed = (): UploadEvent => ({ kind: 'completed', document: document('processing') });
+
 describe('UploadComponent', () => {
   let fixture: ComponentFixture<UploadComponent>;
   let component: UploadComponent;
   let api: jasmine.SpyObj<DocumentApiService>;
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['upload', 'waitUntilProcessed']);
+    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['upload', 'waitUntilProcessed', 'getLimits']);
+    api.getLimits.and.returnValue(of({ maxSizeBytes: 1000 }));
     await TestBed.configureTestingModule({
       imports: [UploadComponent],
       providers: [{ provide: DocumentApiService, useValue: api }],
@@ -54,7 +58,7 @@ describe('UploadComponent', () => {
   });
 
   it('uploads, polls, and reports a ready document', () => {
-    api.upload.and.returnValue(of(document('processing')));
+    api.upload.and.returnValue(of(completed()));
     api.waitUntilProcessed.and.returnValue(of(document('ready')));
     selectFile();
 
@@ -67,7 +71,7 @@ describe('UploadComponent', () => {
   });
 
   it('shows the failure reason when processing fails', () => {
-    api.upload.and.returnValue(of(document('processing')));
+    api.upload.and.returnValue(of(completed()));
     api.waitUntilProcessed.and.returnValue(of(document('failed', 'Corrupted or unreadable PDF')));
     selectFile();
 
@@ -77,8 +81,36 @@ describe('UploadComponent', () => {
     expect(text()).toContain('Corrupted or unreadable PDF');
   });
 
+  it('shows the upload percentage while the file is being sent', () => {
+    const events = new Subject<UploadEvent>();
+    api.upload.and.returnValue(events);
+    selectFile();
+
+    component.submit();
+    events.next({ kind: 'progress', percent: 42 });
+    fixture.detectChanges();
+
+    expect(component.state()).toBe('uploading');
+    expect(text()).toContain('Uploading… 42%');
+    expect((fixture.nativeElement as HTMLElement).querySelector('progress')?.getAttribute('max')).toBe('100');
+  });
+
+  it('shows an indeterminate processing indicator once the upload completes', () => {
+    api.upload.and.returnValue(of(completed()));
+    api.waitUntilProcessed.and.returnValue(NEVER);
+    selectFile();
+
+    component.submit();
+    fixture.detectChanges();
+
+    expect(component.state()).toBe('processing');
+    expect(text()).toContain('Processing…');
+  });
+
   it('shows the server error message when the upload is rejected', () => {
-    api.upload.and.returnValue(throwError(() => ({ error: { error: 'Unsupported file type' } })));
+    api.upload.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 400, error: { error: 'Unsupported file type' } })),
+    );
     selectFile();
 
     component.submit();
@@ -86,5 +118,65 @@ describe('UploadComponent', () => {
 
     expect(component.state()).toBe('error');
     expect(text()).toContain('Unsupported file type');
+  });
+
+  it('shows a size message when the server rejects with a bare 413', () => {
+    api.upload.and.returnValue(throwError(() => new HttpErrorResponse({ status: 413 })));
+    selectFile();
+
+    component.submit();
+    fixture.detectChanges();
+
+    expect(text()).toContain('maximum allowed size');
+  });
+
+  it('shows a generic message for unexpected errors', () => {
+    api.upload.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+    selectFile();
+
+    component.submit();
+    fixture.detectChanges();
+
+    expect(text()).toContain('The upload failed');
+  });
+
+  it('blocks a file larger than the server limit before uploading it', () => {
+    component.selectedFile.set(new File([new Uint8Array(2 * 1024 * 1024)], 'big.pdf'));
+    component.maxSizeBytes.set(1024 * 1024);
+    fixture.detectChanges();
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
+    expect(text()).toContain('File exceeds the maximum size of 1 MB.');
+    expect(button.disabled).toBeTrue();
+
+    component.submit();
+    expect(api.upload).not.toHaveBeenCalled();
+  });
+
+  it('allows a file within the server limit', () => {
+    component.selectedFile.set(new File(['x'], 'small.pdf'));
+    fixture.detectChanges();
+
+    expect(component.tooLargeMessage()).toBeNull();
+    expect(text()).not.toContain('exceeds');
+  });
+
+  it('skips the pre-check when the limits cannot be loaded and lets the server decide', () => {
+    api.getLimits.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+    const other = TestBed.createComponent(UploadComponent).componentInstance;
+    other.selectedFile.set(new File([new Uint8Array(5000)], 'big.pdf'));
+
+    expect(other.maxSizeBytes()).toBeNull();
+    expect(other.tooLargeMessage()).toBeNull();
+  });
+
+  it('explains a network-level failure, such as the server closing the connection', () => {
+    api.upload.and.returnValue(throwError(() => new HttpErrorResponse({ status: 0 })));
+    selectFile();
+
+    component.submit();
+    fixture.detectChanges();
+
+    expect(text()).toContain('may exceed the maximum size');
   });
 });

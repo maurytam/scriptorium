@@ -10,17 +10,31 @@
   <button
     type="button"
     (click)="submit()"
-    [disabled]="!selectedFile() || state() === 'uploading' || state() === 'processing'"
+    [disabled]="!selectedFile() || !!tooLargeMessage() || state() === 'uploading' || state() === 'processing'"
   >
     Upload
   </button>
 
+  @if (tooLargeMessage(); as message) {
+    <p class="status failed">{{ message }}</p>
+  }
+
   @switch (state()) {
     @case ('uploading') {
-      <p class="status">Uploading…</p>
+      <p class="status">
+        <label>
+          Uploading… {{ uploadPercent() }}%
+          <progress max="100" [value]="uploadPercent()"></progress>
+        </label>
+      </p>
     }
     @case ('processing') {
-      <p class="status">Processing…</p>
+      <p class="status">
+        <label>
+          Processing…
+          <progress></progress>
+        </label>
+      </p>
     }
     @case ('done') {
       @if (result(); as document) {

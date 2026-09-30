@@ -99,11 +99,11 @@ Web app layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.Infrastr
 
 **Independent Test**: Upload an unsupported file type and a corrupted supported-format file; confirm both produce a specific, visible error (not a crash or indefinite "processing").
 
-- [ ] T039 [US2] Extend `DocumentUploadService` (`src/Scriptorium.Core/Services/DocumentUploadService.cs`) to validate file extension and the 50 MB size limit before creating a `Document` row, returning a `Result` failure for each case
-- [ ] T040 [P] [US2] Extend `DocumentUploadServiceTests` (`tests/Scriptorium.Core.Tests/Services/DocumentUploadServiceTests.cs`) with unsupported-type and oversized-file cases
-- [ ] T041 [US2] Extend `POST /api/documents` (`src/Scriptorium.API/Endpoints/DocumentEndpoints.cs`) to map validation failures to `400 Bad Request` (unsupported type) and `413 Payload Too Large` (oversized), including `MultipartBodyLengthLimit` configuration
-- [ ] T042 [P] [US2] Integration tests for unsupported-type (400), oversized (413), and corrupted-file (`Failed` status + reason) scenarios in `tests/Scriptorium.Infrastructure.Tests/Endpoints/DocumentUploadEndpointTests.cs`
-- [ ] T043 [US2] Add an upload/processing progress indicator and error-message display to the Angular upload component in `src/Scriptorium.Web/src/app/documents/upload/`
+- [X] T039 [US2] Extend `DocumentUploadService` (`src/Scriptorium.Core/Services/DocumentUploadService.cs`) to validate file extension and the 50 MB size limit before creating a `Document` row, returning a `Result` failure for each case
+- [X] T040 [P] [US2] Extend `DocumentUploadServiceTests` (`tests/Scriptorium.Core.Tests/Services/DocumentUploadServiceTests.cs`) with unsupported-type and oversized-file cases
+- [X] T041 [US2] Extend `POST /api/documents` (`src/Scriptorium.API/Endpoints/DocumentEndpoints.cs`) to map validation failures to `400 Bad Request` (unsupported type) and `413 Payload Too Large` (oversized), including `MultipartBodyLengthLimit` configuration
+- [X] T042 [P] [US2] Integration tests for unsupported-type (400), oversized (413), and corrupted-file (`Failed` status + reason) scenarios in `tests/Scriptorium.Infrastructure.Tests/Endpoints/DocumentUploadEndpointTests.cs`
+- [X] T043 [US2] Add an upload/processing progress indicator and error-message display to the Angular upload component in `src/Scriptorium.Web/src/app/documents/upload/`
 
 **Checkpoint**: User Stories 1 AND 2 both work independently
 
@@ -143,7 +143,7 @@ Web app layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.Infrastr
 ## Phase 7: Polish & Cross-Cutting Concerns
 
 - [ ] T053 [P] Add global exception-handling middleware in `src/Scriptorium.API/Program.cs` so an unhandled exception returns a generic 500 instead of crashing the process (belt-and-braces for FR-006)
-- [ ] T054 [P] Add `Storage:LocalPath` and `Documents:MaxSizeBytes` configuration entries to `src/Scriptorium.API/appsettings.json` (backing T026, T039)
+- [X] T054 [P] Add `Storage:LocalPath` and `Documents:MaxSizeBytes` configuration entries to `src/Scriptorium.API/appsettings.json` (backing T026, T039)
 - [ ] T055 Run the `quickstart.md` validation scenarios end-to-end against the running app and record results
 - [ ] T056 [P] Review all new classes against Constitution VI (methods under 30 lines, single responsibility) and refactor any that exceed it
 

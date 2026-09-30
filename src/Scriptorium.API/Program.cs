@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Scriptorium.API.Endpoints;
@@ -8,12 +9,15 @@ using Scriptorium.Infrastructure.Persistence;
 using Scriptorium.Infrastructure.Processing;
 using Scriptorium.Infrastructure.Storage;
 
+const long DefaultMaxSizeBytes = 50L * 1024 * 1024;
+
 var builder = WebApplication.CreateBuilder(args);
 
 var contentRoot = builder.Environment.ContentRootPath;
 var connectionString = ResolveConnectionString(builder.Configuration, contentRoot);
 var documentsPath = Path.GetFullPath(
     builder.Configuration["Storage:LocalPath"] ?? "App_Data/documents", contentRoot);
+var maxSizeBytes = builder.Configuration.GetValue("Documents:MaxSizeBytes", DefaultMaxSizeBytes);
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContextFactory<ScriptoriumDbContext>(options => options.UseSqlite(connectionString));
@@ -28,7 +32,15 @@ builder.Services.AddSingleton<IDocumentParser, TextDocumentParser>();
 builder.Services.AddSingleton<DocumentProcessingQueue>();
 builder.Services.AddSingleton<IDocumentProcessingQueue>(sp => sp.GetRequiredService<DocumentProcessingQueue>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DocumentProcessingQueue>());
-builder.Services.AddSingleton<DocumentUploadService>();
+builder.Services.AddSingleton(sp => new DocumentUploadService(
+    sp.GetRequiredService<IFileStore>(),
+    sp.GetRequiredService<IDocumentRepository>(),
+    sp.GetRequiredService<IDocumentProcessingQueue>(),
+    sp.GetServices<IDocumentParser>(),
+    sp.GetRequiredService<TimeProvider>(),
+    maxSizeBytes));
+builder.Services.Configure<FormOptions>(options =>
+    options.MultipartBodyLengthLimit = maxSizeBytes + DocumentEndpoints.MultipartOverheadBytes);
 
 var app = builder.Build();
 
@@ -39,7 +51,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await db.Database.MigrateAsync();
 }
 
-app.MapDocumentEndpoints();
+app.MapDocumentEndpoints(maxSizeBytes);
 
 app.Run();
 

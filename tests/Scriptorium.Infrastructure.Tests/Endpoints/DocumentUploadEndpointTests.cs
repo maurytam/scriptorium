@@ -9,6 +9,8 @@ namespace Scriptorium.Infrastructure.Tests.Endpoints;
 
 public sealed class DocumentUploadEndpointTests : IDisposable
 {
+    private const int OneMegabyte = 1024 * 1024;
+
     private readonly string _dataPath = Path.Combine(Path.GetTempPath(), "scriptorium-tests", Guid.NewGuid().ToString());
     private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;
@@ -85,6 +87,68 @@ public sealed class DocumentUploadEndpointTests : IDisposable
         var response = await _client.GetAsync($"/api/documents/{Guid.NewGuid()}/text");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Upload_UnsupportedType_ReturnsBadRequestNamingSupportedFormats()
+    {
+        var response = await UploadAsync("photo.png", [1, 2, 3]);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await ReadJsonAsync(response)).GetProperty("error").GetString()
+            .Should().Be("Unsupported file type '.png'. Supported types: pdf, docx, xlsx, txt.");
+        StoredDocumentFolders().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Upload_FileOverConfiguredLimit_ReturnsPayloadTooLargeAndStoresNothing()
+    {
+        using var smallLimitFactory = _factory.WithWebHostBuilder(
+            builder => builder.UseSetting("Documents:MaxSizeBytes", OneMegabyte.ToString()));
+        using var client = smallLimitFactory.CreateClient();
+        var form = new MultipartFormDataContent { { new ByteArrayContent(new byte[OneMegabyte + 1]), "file", "big.txt" } };
+
+        var response = await client.PostAsync("/api/documents", form);
+
+        response.StatusCode.Should().Be(HttpStatusCode.RequestEntityTooLarge);
+        (await ReadJsonAsync(response)).GetProperty("error").GetString()
+            .Should().Be("File exceeds the maximum size of 1 MB.");
+        StoredDocumentFolders().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Upload_CorruptedDocx_IsAcceptedThenFailedWithReasonAndApiStaysResponsive()
+    {
+        var response = await UploadAsync("corrupted.docx", SampleDocuments.Txt("this is a renamed text file"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        var id = (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+        var details = await WaitForTerminalStatusAsync(id);
+        details.GetProperty("status").GetString().Should().Be("failed");
+        details.GetProperty("failureReason").GetString().Should().Contain("Corrupted");
+
+        var next = await UploadAsync("after.txt", SampleDocuments.Txt("still working"));
+        var nextId = (await ReadJsonAsync(next)).GetProperty("id").GetGuid();
+        (await WaitForTerminalStatusAsync(nextId)).GetProperty("status").GetString().Should().Be("ready");
+    }
+
+    [Fact]
+    public async Task GetLimits_ReturnsConfiguredMaxSize()
+    {
+        using var factory = _factory.WithWebHostBuilder(
+            builder => builder.UseSetting("Documents:MaxSizeBytes", OneMegabyte.ToString()));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/documents/limits");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ReadJsonAsync(response)).GetProperty("maxSizeBytes").GetInt64().Should().Be(OneMegabyte);
+    }
+
+    private string[] StoredDocumentFolders()
+    {
+        var documents = Path.Combine(_dataPath, "documents");
+        return Directory.Exists(documents) ? Directory.GetDirectories(documents) : [];
     }
 
     private static byte[] SampleFor(string fileType, string text) => fileType switch

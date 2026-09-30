@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
 using Scriptorium.Core.Dtos;
 using Scriptorium.Core.Enums;
 using Scriptorium.Core.Interfaces;
@@ -7,12 +9,20 @@ namespace Scriptorium.API.Endpoints;
 
 public static class DocumentEndpoints
 {
-    public static IEndpointRouteBuilder MapDocumentEndpoints(this IEndpointRouteBuilder app)
+    /// <summary>Headroom above the file limit for multipart boundaries and form fields.</summary>
+    public const long MultipartOverheadBytes = 1024 * 1024;
+
+    public static IEndpointRouteBuilder MapDocumentEndpoints(this IEndpointRouteBuilder app, long maxFileSizeBytes)
     {
         var group = app.MapGroup("/api/documents");
 
         // Local single-user app with no authentication or cookies, so anti-forgery does not apply.
-        group.MapPost("/", UploadAsync).DisableAntiforgery();
+        // The request limit sits above the file limit so oversized files reach the service check
+        // and get the documented JSON 413 instead of a bare framework rejection.
+        group.MapPost("/", UploadAsync)
+            .DisableAntiforgery()
+            .WithMetadata(new RequestSizeLimitAttribute(maxFileSizeBytes + MultipartOverheadBytes));
+        group.MapGet("/limits", () => Results.Ok(new UploadLimitsDto(maxFileSizeBytes)));
         group.MapGet("/{id:guid}", GetByIdAsync);
         group.MapGet("/{id:guid}/text", GetTextAsync);
 
@@ -31,8 +41,19 @@ public static class DocumentEndpoints
         var result = await uploadService.UploadAsync(content, file.FileName, file.Length, isPrivate: false, ct);
 
         return result.IsSuccess
-            ? Results.Accepted($"/api/documents/{result.Value.Id}", UploadedDocumentDto.From(result.Value))
-            : Results.Json(new ErrorDto(result.Error), statusCode: StatusCodes.Status500InternalServerError);
+            ? Results.Accepted($"/api/documents/{result.Document.Id}", UploadedDocumentDto.From(result.Document))
+            : ToFailureResponse(result.FailureKind, result.Error);
+    }
+
+    private static IResult ToFailureResponse(UploadFailureKind? kind, string error)
+    {
+        var body = new ErrorDto(error);
+        return kind switch
+        {
+            UploadFailureKind.UnsupportedType => Results.BadRequest(body),
+            UploadFailureKind.FileTooLarge => Results.Json(body, statusCode: StatusCodes.Status413PayloadTooLarge),
+            _ => Results.Json(body, statusCode: StatusCodes.Status500InternalServerError)
+        };
     }
 
     private static async Task<IResult> GetByIdAsync(Guid id, IDocumentRepository repository, CancellationToken ct)

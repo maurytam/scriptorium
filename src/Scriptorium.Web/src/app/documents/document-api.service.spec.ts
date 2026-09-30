@@ -1,9 +1,9 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 
 import { DocumentApiService } from './document-api.service';
-import { DocumentDetails } from './document.models';
+import { DocumentDetails, UploadEvent } from './document.models';
 
 const details = (status: DocumentDetails['status']): DocumentDetails => ({
   id: 'abc',
@@ -35,8 +35,56 @@ describe('DocumentApiService', () => {
 
     const request = http.expectOne('/api/documents');
     expect(request.request.method).toBe('POST');
+    expect(request.request.reportProgress).toBeTrue();
     expect((request.request.body as FormData).get('file')).toBeTruthy();
     request.flush(details('processing'));
+  });
+
+  it('emits upload progress percentages and then the completed document', () => {
+    const events: UploadEvent[] = [];
+
+    service.upload(new File(['hello'], 'notes.txt')).subscribe((e) => events.push(e));
+
+    const request = http.expectOne('/api/documents');
+    request.event({ type: HttpEventType.Sent });
+    request.event({ type: HttpEventType.UploadProgress, loaded: 25, total: 100 });
+    request.event({ type: HttpEventType.UploadProgress, loaded: 100, total: 100 });
+    request.flush(details('processing'));
+
+    expect(events.map((e) => e.kind)).toEqual(['progress', 'progress', 'completed']);
+    expect(events[0]).toEqual({ kind: 'progress', percent: 25 });
+    expect(events[1]).toEqual({ kind: 'progress', percent: 100 });
+  });
+
+  it('reports 0% progress when the total size is unknown', () => {
+    const events: UploadEvent[] = [];
+
+    service.upload(new File(['hello'], 'notes.txt')).subscribe((e) => events.push(e));
+
+    http.expectOne('/api/documents').event({ type: HttpEventType.UploadProgress, loaded: 10 });
+
+    expect(events).toEqual([{ kind: 'progress', percent: 0 }]);
+  });
+
+  it('propagates server rejections such as 400 and 413', () => {
+    let status = 0;
+
+    service.upload(new File(['x'], 'photo.png')).subscribe({ error: (e) => (status = e.status) });
+
+    http.expectOne('/api/documents').flush({ error: 'nope' }, { status: 400, statusText: 'Bad Request' });
+
+    expect(status).toBe(400);
+  });
+
+  it('reads the upload limits from the server', () => {
+    let maxSizeBytes = 0;
+
+    service.getLimits().subscribe((limits) => (maxSizeBytes = limits.maxSizeBytes));
+
+    const request = http.expectOne('/api/documents/limits');
+    expect(request.request.method).toBe('GET');
+    request.flush({ maxSizeBytes: 31457280 });
+    expect(maxSizeBytes).toBe(31457280);
   });
 
   it('polls until the document leaves the processing status', fakeAsync(() => {
