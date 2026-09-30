@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 
 import { DocumentApiService } from './document-api.service';
-import { DocumentDetails, UploadEvent } from './document.models';
+import { DocumentDetails, DocumentSummary, UploadEvent } from './document.models';
 
 const details = (status: DocumentDetails['status']): DocumentDetails => ({
   id: 'abc',
@@ -88,6 +88,39 @@ describe('DocumentApiService', () => {
     http.expectOne('/api/documents').flush({ error: 'nope' }, { status: 400, statusText: 'Bad Request' });
 
     expect(status).toBe(400);
+  });
+
+  it('lists the documents from the server', () => {
+    let received: DocumentSummary[] = [];
+
+    service.list().subscribe((documents) => (received = documents));
+
+    const request = http.expectOne('/api/documents');
+    expect(request.request.method).toBe('GET');
+    request.flush([{ id: 'abc', fileName: 'a.pdf', fileType: 'pdf', uploadDate: '2026-08-03T12:00:00Z', isPrivate: true, status: 'ready' }]);
+    expect(received.length).toBe(1);
+    expect(received[0].isPrivate).toBeTrue();
+  });
+
+  it('notifies subscribers when documents change', () => {
+    let notifications = 0;
+    service.documentsChanged.subscribe(() => notifications++);
+
+    service.notifyDocumentsChanged();
+    service.notifyDocumentsChanged();
+
+    expect(notifications).toBe(2);
+  });
+
+  it('deletes a document by id', () => {
+    let completed = false;
+
+    service.delete('abc').subscribe({ complete: () => (completed = true) });
+
+    const request = http.expectOne('/api/documents/abc');
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    expect(completed).toBeTrue();
   });
 
   it('reads the upload limits from the server', () => {

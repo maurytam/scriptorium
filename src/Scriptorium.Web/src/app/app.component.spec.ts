@@ -15,11 +15,12 @@ describe('AppComponent', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('should render the title and the upload component', () => {
+  it('should render the title, the upload component and the document list', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Scriptorium');
     expect(compiled.querySelector('app-upload')).toBeTruthy();
+    expect(compiled.querySelector('app-document-list')).toBeTruthy();
   });
 });

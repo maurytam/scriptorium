@@ -13,7 +13,6 @@ type UploadState = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
 @Component({
   selector: 'app-upload',
   templateUrl: './upload.component.html',
-  styleUrl: './upload.component.css',
 })
 export class UploadComponent {
   private readonly api = inject(DocumentApiService);
@@ -71,7 +70,10 @@ export class UploadComponent {
       .pipe(
         tap((event) => event.kind === 'progress' && this.uploadPercent.set(event.percent)),
         filter((event): event is UploadCompleted => event.kind === 'completed'),
-        tap(() => this.state.set('processing')),
+        tap(() => {
+          this.state.set('processing');
+          this.api.notifyDocumentsChanged();
+        }),
         switchMap((event) => this.api.waitUntilProcessed(event.document.id)),
         takeUntilDestroyed(this.destroyRef),
       )

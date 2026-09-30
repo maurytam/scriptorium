@@ -1,1 +1,554 @@
-/* You can add global styles to this file, and also import other style files */
+/* ==========================================================================
+   Scriptorium — single global stylesheet
+   Theme: a warm parchment page, dark ink text and a burgundy accent.
+   Light by default, dark automatically via prefers-color-scheme.
+   ========================================================================== */
+
+/* ---------- Design tokens ---------- */
+:root {
+  --bg: #f4efe6;
+  --surface: #fffdf8;
+  --surface-alt: #faf5ea;
+  --ink: #2b2a33;
+  --muted: #6b675f;
+  --line: #e3dccd;
+  --line-strong: #cfc5ae;
+
+  --accent: #7a1f2b;
+  --accent-hover: #5f1721;
+  --accent-contrast: #ffffff;
+  --gold: #c9a24d;
+
+  --header-bg: #23202b;
+  --header-ink: #f4efe6;
+
+  --danger: #b3261e;
+  --danger-hover: #8f1d17;
+  --danger-contrast: #ffffff;
+
+  --ok-ink: #1d6b3a;
+  --ok-bg: #e1f2e6;
+  --bad-ink: #a12622;
+  --bad-bg: #fbe6e4;
+  --wait-ink: #8a5a00;
+  --wait-bg: #fff0d1;
+  --private-ink: #4b3aa0;
+  --private-bg: #ece9fb;
+
+  --radius: 0.75rem;
+  --shadow: 0 1px 2px rgb(43 42 51 / 8%), 0 8px 24px rgb(43 42 51 / 6%);
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17151a;
+    --surface: #211e27;
+    --surface-alt: #1b1920;
+    --ink: #ece8df;
+    --muted: #a39d92;
+    --line: #34303b;
+    --line-strong: #4a4553;
+
+    --accent: #e0909a;
+    --accent-hover: #f0a8b1;
+    --accent-contrast: #2a0e13;
+
+    --header-bg: #100e13;
+
+    --danger: #e57a75;
+    --danger-hover: #f09792;
+    --danger-contrast: #2a0e0d;
+
+    --ok-ink: #7fd6a0;
+    --ok-bg: #16311f;
+    --bad-ink: #f4a29e;
+    --bad-bg: #3a1917;
+    --wait-ink: #f0c877;
+    --wait-bg: #3a2c10;
+    --private-ink: #b9adf5;
+    --private-bg: #2a2547;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
+  }
+}
+
+/* ---------- Base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Page shell ---------- */
+.app-header {
+  padding: 2rem 1rem 1.75rem;
+  text-align: center;
+  color: var(--header-ink);
+  background: var(--header-bg);
+  border-bottom: 3px solid var(--gold);
+}
+
+.brand {
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  letter-spacing: 0.04em;
+}
+
+.brand::before {
+  content: '✒';
+  margin-right: 0.6rem;
+  color: var(--gold);
+}
+
+.tagline {
+  margin: 0.4rem 0 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  color: color-mix(in srgb, var(--header-ink) 70%, transparent);
+}
+
+.app-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  width: min(100% - 2rem, 56rem);
+  margin: 2rem auto 3rem;
+}
+
+/* ---------- Cards ---------- */
+.card {
+  min-width: 0;
+  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.card > h2 {
+  margin-bottom: 1rem;
+  font-size: 1.35rem;
+}
+
+/* ---------- Upload ---------- */
+.upload {
+  display: grid;
+  gap: 1rem;
+}
+
+.upload > h2 {
+  margin-bottom: 0;
+}
+
+.upload input[type='file'] {
+  display: block;
+  width: 100%;
+  padding: 1.25rem;
+  color: var(--muted);
+  font: inherit;
+  background: var(--surface-alt);
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.upload input[type='file']:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.upload input[type='file']:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.upload input[type='file']::file-selector-button {
+  margin-right: 1rem;
+  padding: 0.5rem 1rem;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.private {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.private input[type='checkbox'] {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.private input[type='checkbox']:disabled {
+  cursor: not-allowed;
+}
+
+/* ---------- Buttons ---------- */
+button {
+  padding: 0.65rem 1.5rem;
+  color: var(--accent-contrast);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--accent);
+  border: 0;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.1s;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Secondary and danger variants (hover rules repeated: `button:hover` is more specific than the class). */
+button.secondary {
+  color: var(--ink);
+  background: var(--surface-alt);
+  border: 1px solid var(--line-strong);
+}
+
+button.secondary:hover:not(:disabled) {
+  background: var(--line);
+}
+
+button.danger {
+  color: var(--danger-contrast);
+  background: var(--danger);
+}
+
+button.danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+}
+
+.icon-button {
+  padding: 0.4rem;
+  color: var(--muted);
+  line-height: 0;
+  background: transparent;
+  border-radius: 0.5rem;
+}
+
+.icon-button:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--bad-bg);
+}
+
+.icon-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Status messages ---------- */
+.status {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: var(--ink);
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+.status label {
+  display: grid;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.status.ready {
+  color: var(--ok-ink);
+  background: var(--ok-bg);
+  border-color: transparent;
+}
+
+.status.failed {
+  color: var(--bad-ink);
+  background: var(--bad-bg);
+  border-color: transparent;
+}
+
+.status.ready::before {
+  content: '✓ ';
+  font-weight: 700;
+}
+
+.status.failed::before {
+  content: '✕ ';
+  font-weight: 700;
+}
+
+/* ---------- Progress bar ---------- */
+progress {
+  width: 100%;
+  height: 0.6rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: var(--line);
+  appearance: none;
+}
+
+progress::-webkit-progress-bar {
+  background: var(--line);
+}
+
+progress::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.2s;
+}
+
+progress::-moz-progress-bar {
+  background: var(--accent);
+}
+
+/* Indeterminate (no value): a sliding highlight. */
+progress:not([value]) {
+  background: linear-gradient(90deg, var(--line) 0%, var(--accent) 50%, var(--line) 100%) 0 0 / 200% 100%;
+  animation: slide 1.4s linear infinite;
+}
+
+progress:not([value])::-webkit-progress-bar {
+  background: transparent;
+}
+
+@keyframes slide {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------- Document list ---------- */
+.documents > h2 {
+  margin-bottom: 1rem;
+}
+
+.documents .error {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  color: var(--bad-ink);
+  background: var(--bad-bg);
+  border-radius: 0.5rem;
+}
+
+.documents .empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  color: var(--muted);
+  text-align: center;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.documents table {
+  width: 100%;
+  min-width: 34rem;
+  border-collapse: collapse;
+}
+
+.documents th {
+  padding: 0.5rem 0.75rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--line);
+}
+
+.documents td {
+  padding: 0.85rem 0.75rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+}
+
+.documents tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.documents tbody tr:hover {
+  background: var(--surface-alt);
+}
+
+.documents td:first-child {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.documents td:nth-child(2) {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.documents td:nth-child(3) {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.documents .actions-col {
+  width: 1%;
+}
+
+.documents td.actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.confirm > span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.confirm button {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.65rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+  background: var(--surface-alt);
+  border-radius: 999px;
+}
+
+.badge.ready {
+  color: var(--ok-ink);
+  background: var(--ok-bg);
+}
+
+.badge.failed {
+  color: var(--bad-ink);
+  background: var(--bad-bg);
+}
+
+.badge.processing {
+  color: var(--wait-ink);
+  background: var(--wait-bg);
+}
+
+.badge.private {
+  margin-left: 0.5rem;
+  color: var(--private-ink);
+  background: var(--private-bg);
+}
+
+.badge.private::before {
+  content: '🔒 ';
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 40rem) {
+  .card {
+    padding: 1rem;
+  }
+
+  .upload-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .upload-actions button {
+    width: 100%;
+  }
+}
+
+/* ---------- Motion preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

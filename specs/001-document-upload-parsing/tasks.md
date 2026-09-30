@@ -130,11 +130,11 @@ Web app layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.Infrastr
 
 **Independent Test**: Upload one or more documents and confirm each appears in the list with correct metadata and status, updating as processing completes.
 
-- [ ] T048 [US4] Add `GetAllAsync` to `IDocumentRepository` (`src/Scriptorium.Core/Interfaces/IDocumentRepository.cs`) and implement it in `DocumentRepository` (`src/Scriptorium.Infrastructure/Persistence/DocumentRepository.cs`), ordered by upload date descending
-- [ ] T049 [P] [US4] Unit test for `DocumentRepository.GetAllAsync` ordering in `tests/Scriptorium.Infrastructure.Tests/Persistence/DocumentRepositoryTests.cs`
-- [ ] T050 [US4] Implement `GET /api/documents` (list) in `src/Scriptorium.API/Endpoints/DocumentEndpoints.cs` per `contracts/documents-api.md` (depends on T048)
-- [ ] T051 [P] [US4] Integration test for the list endpoint in `tests/Scriptorium.Infrastructure.Tests/Endpoints/DocumentListEndpointTests.cs`
-- [ ] T052 [US4] Build the Angular document-list component in `src/Scriptorium.Web/src/app/documents/document-list/`, showing filename, type, upload date, and status, calling `GET /api/documents`
+- [X] T048 [US4] Add `GetAllAsync` to `IDocumentRepository` (`src/Scriptorium.Core/Interfaces/IDocumentRepository.cs`) and implement it in `DocumentRepository` (`src/Scriptorium.Infrastructure/Persistence/DocumentRepository.cs`), ordered by upload date descending
+- [X] T049 [P] [US4] Unit test for `DocumentRepository.GetAllAsync` ordering in `tests/Scriptorium.Infrastructure.Tests/Persistence/DocumentRepositoryTests.cs`
+- [X] T050 [US4] Implement `GET /api/documents` (list) in `src/Scriptorium.API/Endpoints/DocumentEndpoints.cs` per `contracts/documents-api.md` (depends on T048)
+- [X] T051 [P] [US4] Integration test for the list endpoint in `tests/Scriptorium.Infrastructure.Tests/Endpoints/DocumentListEndpointTests.cs`
+- [X] T052 [US4] Build the Angular document-list component in `src/Scriptorium.Web/src/app/documents/document-list/`, showing filename, type, upload date, and status, calling `GET /api/documents`
 
 **Checkpoint**: All four user stories are independently functional
 
@@ -215,6 +215,19 @@ Task: "Unit tests for TextDocumentParser in tests/Scriptorium.Infrastructure.Tes
 3. Add User Story 2 → validate → error handling demo
 4. Add User Story 3 → validate → privacy flag demo
 5. Add User Story 4 → validate → full feature demo
+
+---
+
+## Phase 8: Additions after review (duplicates, deletion, styling)
+
+**Purpose**: Requirements added by the user after reviewing phases 1–6 (spec FR-012, FR-013). All done on the same branch as phase 6.
+
+- [X] T057 Add `ContentHash` to `Document`, compute the SHA-256 in `DocumentUploadService` before storing anything, and reject duplicates with `UploadFailureKind.Duplicate` (`409`); add `IDocumentRepository.FindByContentHashAsync` and the `AddContentHash` EF migration
+- [X] T058 [P] Tests for duplicate detection: `DocumentUploadServiceTests`, `UploadResultTests`, `DocumentRepositoryTests`, and endpoint tests in `DocumentUploadEndpointTests` (same content again, renamed copy, same name with different content, re-upload after deletion)
+- [X] T059 Add `DocumentDeletionService`, `DeleteResult`/`DeleteFailureKind`, `IDocumentRepository.DeleteAsync`, `IFileStore.Delete` (`LocalFileStore`) and `DELETE /api/documents/{id}` (`204`/`404`/`409` while processing)
+- [X] T060 [P] Tests for deletion: `DocumentDeletionServiceTests`, `DeleteResultTests`, `DocumentRepositoryTests`, `LocalFileStoreTests` and `DocumentDeleteEndpointTests`
+- [X] T061 Angular: trash button on the right of each row with confirmation in the row, disabled while processing (`document-list`), `DocumentApiService.delete`, plus specs
+- [X] T062 Restyle the UI: a single global stylesheet `src/Scriptorium.Web/src/styles.css` (parchment/ink/burgundy theme, dark mode, responsive); component stylesheets removed
 
 ---
 

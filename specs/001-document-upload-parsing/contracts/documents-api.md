@@ -32,8 +32,29 @@ Upload a new document.
   ```json
   { "error": "File exceeds the maximum size of 50 MB." }
   ```
+- `409 Conflict` — a document with identical content was already uploaded; nothing is stored
+  ```json
+  { "error": "This file has already been uploaded as 'report.pdf'." }
+  ```
 
 Corresponds to spec FR-001, FR-002, FR-003, FR-007; User Stories 1–3.
+
+## DELETE /api/documents/{id}
+
+Delete a document: its record, its extracted text and its stored file.
+
+**Responses**:
+- `204 No Content` — deleted
+- `404 Not Found` — no document with that ID
+  ```json
+  { "error": "Document not found." }
+  ```
+- `409 Conflict` — the document is still `processing` and cannot be deleted yet
+  ```json
+  { "error": "The document is still being processed and cannot be deleted yet." }
+  ```
+
+Corresponds to spec FR-013. Uploading the same content again succeeds after deletion.
 
 ## GET /api/documents/limits
 
@@ -59,10 +80,13 @@ List all uploaded documents, most recent first.
     "fileName": "report.pdf",
     "fileType": "pdf",
     "uploadDate": "2026-08-03T12:00:00Z",
+    "isPrivate": false,
     "status": "ready"
   }
 ]
 ```
+
+`isPrivate` is included so the UI can confirm the private choice in the list (spec SC-005).
 
 Corresponds to spec FR-009, FR-010; User Story 4.
 

@@ -25,7 +25,7 @@ describe('UploadComponent', () => {
   let api: jasmine.SpyObj<DocumentApiService>;
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['upload', 'waitUntilProcessed', 'getLimits']);
+    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['upload', 'waitUntilProcessed', 'getLimits', 'notifyDocumentsChanged']);
     api.getLimits.and.returnValue(of({ maxSizeBytes: 1000 }));
     await TestBed.configureTestingModule({
       imports: [UploadComponent],
@@ -215,5 +215,40 @@ describe('UploadComponent', () => {
     fixture.detectChanges();
 
     expect(checkbox.disabled).toBeTrue();
+  });
+
+  it('tells the document list to refresh once the upload has been accepted', () => {
+    api.upload.and.returnValue(of(completed()));
+    api.waitUntilProcessed.and.returnValue(NEVER);
+    selectFile();
+
+    component.submit();
+
+    expect(api.notifyDocumentsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not refresh the list when the upload is rejected', () => {
+    api.upload.and.returnValue(throwError(() => new HttpErrorResponse({ status: 400, error: { error: 'nope' } })));
+    selectFile();
+
+    component.submit();
+
+    expect(api.notifyDocumentsChanged).not.toHaveBeenCalled();
+  });
+
+  it('shows the server message when the file was already uploaded (409)', () => {
+    api.upload.and.returnValue(
+      throwError(
+        () => new HttpErrorResponse({ status: 409, error: { error: "This file has already been uploaded as 'a.pdf'." } }),
+      ),
+    );
+    selectFile();
+
+    component.submit();
+    fixture.detectChanges();
+
+    expect(component.state()).toBe('error');
+    expect(text()).toContain("This file has already been uploaded as 'a.pdf'.");
+    expect(api.notifyDocumentsChanged).not.toHaveBeenCalled();
   });
 });

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Scriptorium.Core.Entities;
 using Scriptorium.Core.Enums;
 using Scriptorium.Core.Interfaces;
@@ -35,10 +36,10 @@ public sealed class DocumentUploadService
     public async Task<UploadResult> UploadAsync(
         Stream content, string fileName, long fileSizeBytes, bool isPrivate, CancellationToken ct)
     {
-        var rejection = Validate(fileName, fileSizeBytes);
-        if (rejection is not null)
+        var inspection = await InspectAsync(content, fileName, fileSizeBytes, ct);
+        if (inspection.Rejection is not null)
         {
-            return rejection;
+            return inspection.Rejection;
         }
 
         var id = Guid.NewGuid();
@@ -48,7 +49,7 @@ public sealed class DocumentUploadService
             return UploadResult.Failure(UploadFailureKind.Internal, saved.Error);
         }
 
-        var document = CreateDocument(id, fileName, fileSizeBytes, isPrivate, saved.Value);
+        var document = CreateDocument(id, fileName, fileSizeBytes, isPrivate, saved.Value, inspection.ContentHash);
         var added = await _repository.AddAsync(document, ct);
         if (!added.IsSuccess)
         {
@@ -56,6 +57,42 @@ public sealed class DocumentUploadService
         }
 
         return await EnqueueAsync(document, ct);
+    }
+
+    /// <summary>Checks type, size and duplicates before anything is stored.</summary>
+    private async Task<Inspection> InspectAsync(Stream content, string fileName, long fileSizeBytes, CancellationToken ct)
+    {
+        var invalid = Validate(fileName, fileSizeBytes);
+        if (invalid is not null)
+        {
+            return new Inspection(string.Empty, invalid);
+        }
+
+        var hash = await ComputeHashAsync(content, ct);
+        if (hash is null)
+        {
+            return new Inspection(string.Empty, UploadResult.Failure(UploadFailureKind.Internal, "Unable to read the uploaded file."));
+        }
+
+        var existing = await _repository.FindByContentHashAsync(hash, ct);
+        return existing is null
+            ? new Inspection(hash, null)
+            : new Inspection(hash, UploadResult.Failure(
+                UploadFailureKind.Duplicate, $"This file has already been uploaded as '{existing.FileName}'."));
+    }
+
+    /// <summary>Hashes the whole stream and rewinds it; returns null when the stream cannot be rewound.</summary>
+    private static async Task<string?> ComputeHashAsync(Stream content, CancellationToken ct)
+    {
+        if (!content.CanSeek)
+        {
+            return null;
+        }
+
+        var start = content.Position;
+        var hash = await SHA256.HashDataAsync(content, ct);
+        content.Position = start;
+        return Convert.ToHexString(hash);
     }
 
     private UploadResult? Validate(string fileName, long fileSizeBytes)
@@ -88,7 +125,8 @@ public sealed class DocumentUploadService
         return UploadResult.Failure(UploadFailureKind.Internal, queued.Error);
     }
 
-    private Document CreateDocument(Guid id, string fileName, long sizeBytes, bool isPrivate, string storagePath)
+    private Document CreateDocument(
+        Guid id, string fileName, long sizeBytes, bool isPrivate, string storagePath, string contentHash)
     {
         return new Document
         {
@@ -97,9 +135,12 @@ public sealed class DocumentUploadService
             FileType = Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant(),
             FileSizeBytes = sizeBytes,
             StoragePath = storagePath,
+            ContentHash = contentHash,
             UploadDate = _timeProvider.GetUtcNow(),
             IsPrivate = isPrivate,
             Status = DocumentStatus.Processing
         };
     }
+
+    private sealed record Inspection(string ContentHash, UploadResult? Rejection);
 }

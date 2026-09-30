@@ -1,0 +1,81 @@
+<section class="card documents">
+  <h2>Documents</h2>
+
+  @if (errorMessage(); as message) {
+    <p class="error">{{ message }}</p>
+  }
+
+  @if (loaded() && documents().length === 0) {
+    <p class="empty">No documents uploaded yet.</p>
+  } @else if (documents().length > 0) {
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Uploaded</th>
+            <th>Status</th>
+            <th class="actions-col"><span class="visually-hidden">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (document of documents(); track document.id) {
+            <tr>
+              <td>
+                {{ document.fileName }}
+                @if (document.isPrivate) {
+                  <span class="badge private">Private</span>
+                }
+              </td>
+              <td>{{ document.fileType }}</td>
+              <td>{{ document.uploadDate | date: 'medium' }}</td>
+              <td>
+                <span class="badge" [class]="document.status">{{ document.status }}</span>
+              </td>
+              <td class="actions">
+                @if (confirmingId() === document.id) {
+                  <span class="confirm">
+                    <span>Delete?</span>
+                    <button
+                      type="button"
+                      class="danger"
+                      (click)="confirmDelete(document)"
+                      [disabled]="deletingId() === document.id"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary"
+                      (click)="cancelDelete()"
+                      [disabled]="deletingId() === document.id"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                } @else {
+                  <button
+                    type="button"
+                    class="icon-button"
+                    [attr.aria-label]="'Delete ' + document.fileName"
+                    [title]="document.status === 'processing' ? 'Wait until processing is finished' : 'Delete'"
+                    [disabled]="document.status === 'processing'"
+                    (click)="askDelete(document.id)"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6M14 11v6" />
+                    </svg>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

@@ -29,3 +29,12 @@ export type UploadEvent = UploadProgress | UploadCompleted;
 export interface UploadLimits {
   maxSizeBytes: number;
 }
+
+export interface DocumentSummary {
+  id: string;
+  fileName: string;
+  fileType: string;
+  uploadDate: string;
+  isPrivate: boolean;
+  status: DocumentStatus;
+}
