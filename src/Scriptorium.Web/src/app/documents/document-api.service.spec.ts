@@ -40,6 +40,20 @@ describe('DocumentApiService', () => {
     request.flush(details('processing'));
   });
 
+  it('sends isPrivate=false by default and isPrivate=true when requested', () => {
+    const file = new File(['hello'], 'notes.txt');
+
+    service.upload(file).subscribe();
+    const defaultRequest = http.expectOne('/api/documents');
+    expect((defaultRequest.request.body as FormData).get('isPrivate')).toBe('false');
+    defaultRequest.flush(details('processing'));
+
+    service.upload(file, true).subscribe();
+    const privateRequest = http.expectOne('/api/documents');
+    expect((privateRequest.request.body as FormData).get('isPrivate')).toBe('true');
+    privateRequest.flush(details('processing'));
+  });
+
   it('emits upload progress percentages and then the completed document', () => {
     const events: UploadEvent[] = [];
 

@@ -179,4 +179,41 @@ describe('UploadComponent', () => {
 
     expect(text()).toContain('may exceed the maximum size');
   });
+
+  it('uploads as not private by default', () => {
+    api.upload.and.returnValue(of(completed()));
+    api.waitUntilProcessed.and.returnValue(NEVER);
+    selectFile();
+
+    component.submit();
+
+    expect(api.upload).toHaveBeenCalledWith(jasmine.any(File), false);
+  });
+
+  it('uploads as private when the checkbox is ticked', () => {
+    api.upload.and.returnValue(of(completed()));
+    api.waitUntilProcessed.and.returnValue(NEVER);
+    selectFile();
+    const checkbox = (fixture.nativeElement as HTMLElement).querySelector('input[type=checkbox]') as HTMLInputElement;
+
+    checkbox.click();
+    fixture.detectChanges();
+    component.submit();
+
+    expect(component.isPrivate()).toBeTrue();
+    expect(api.upload).toHaveBeenCalledWith(jasmine.any(File), true);
+  });
+
+  it('shows the private checkbox unticked initially and locks it while uploading', () => {
+    const checkbox = (fixture.nativeElement as HTMLElement).querySelector('input[type=checkbox]') as HTMLInputElement;
+    expect(checkbox.checked).toBeFalse();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Mark as private');
+
+    api.upload.and.returnValue(new Subject<UploadEvent>());
+    selectFile();
+    component.submit();
+    fixture.detectChanges();
+
+    expect(checkbox.disabled).toBeTrue();
+  });
 });

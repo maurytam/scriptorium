@@ -11,9 +11,10 @@ export class DocumentApiService {
   private readonly http = inject(HttpClient);
 
   /** Emits progress events while the file is being sent, then a single completed event. */
-  upload(file: File): Observable<UploadEvent> {
+  upload(file: File, isPrivate = false): Observable<UploadEvent> {
     const form = new FormData();
     form.append('file', file, file.name);
+    form.append('isPrivate', String(isPrivate));
     return this.http
       .post<UploadedDocument>(DOCUMENTS_URL, form, { observe: 'events', reportProgress: true })
       .pipe(

@@ -56,6 +56,26 @@ public class DocumentUploadServiceTests
         });
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task UploadAsync_PersistsIsPrivateAsProvided(bool isPrivate)
+    {
+        var result = await _service.UploadAsync(new MemoryStream([1]), "notes.txt", 1, isPrivate, CancellationToken.None);
+
+        result.Document!.IsPrivate.Should().Be(isPrivate);
+        _repository.Verify(r => r.AddAsync(It.Is<Document>(d => d.IsPrivate == isPrivate), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UploadAsync_RejectedFile_DoesNotPersistIsPrivateDocument()
+    {
+        var result = await _service.UploadAsync(new MemoryStream([1]), "photo.png", 1, isPrivate: true, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        _repository.Verify(r => r.AddAsync(It.IsAny<Document>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task UploadAsync_FileExactlyAtLimit_IsAccepted()
     {

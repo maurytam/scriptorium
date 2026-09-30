@@ -7,6 +7,15 @@
     (change)="onFileSelected($event)"
     [disabled]="state() === 'uploading' || state() === 'processing'"
   />
+  <label class="private">
+    <input
+      type="checkbox"
+      [checked]="isPrivate()"
+      (change)="onPrivateChanged($event)"
+      [disabled]="state() === 'uploading' || state() === 'processing'"
+    />
+    Mark as private
+  </label>
   <button
     type="button"
     (click)="submit()"

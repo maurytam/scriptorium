@@ -115,10 +115,10 @@ Web app layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.Infrastr
 
 **Independent Test**: Upload a document with the private option enabled and confirm the stored record has `IsPrivate = true`; upload without it and confirm `IsPrivate = false`.
 
-- [ ] T044 [US3] Extend `DocumentUploadService` (`src/Scriptorium.Core/Services/DocumentUploadService.cs`) and `POST /api/documents` (`src/Scriptorium.API/Endpoints/DocumentEndpoints.cs`) to accept and persist the `isPrivate` form field, defaulting to `false`
-- [ ] T045 [P] [US3] Unit tests confirming `IsPrivate` is persisted as provided and defaults to `false` in `tests/Scriptorium.Core.Tests/Services/DocumentUploadServiceTests.cs`
-- [ ] T046 [P] [US3] Integration test confirming `isPrivate=true` round-trips through `GET /api/documents/{id}` in `tests/Scriptorium.Infrastructure.Tests/Endpoints/DocumentUploadEndpointTests.cs`
-- [ ] T047 [US3] Add a "Mark as private" checkbox to the Angular upload component in `src/Scriptorium.Web/src/app/documents/upload/`
+- [X] T044 [US3] Extend `DocumentUploadService` (`src/Scriptorium.Core/Services/DocumentUploadService.cs`) and `POST /api/documents` (`src/Scriptorium.API/Endpoints/DocumentEndpoints.cs`) to accept and persist the `isPrivate` form field, defaulting to `false`
+- [X] T045 [P] [US3] Unit tests confirming `IsPrivate` is persisted as provided and defaults to `false` in `tests/Scriptorium.Core.Tests/Services/DocumentUploadServiceTests.cs`
+- [X] T046 [P] [US3] Integration test confirming `isPrivate=true` round-trips through `GET /api/documents/{id}` in `tests/Scriptorium.Infrastructure.Tests/Endpoints/DocumentUploadEndpointTests.cs`
+- [X] T047 [US3] Add a "Mark as private" checkbox to the Angular upload component in `src/Scriptorium.Web/src/app/documents/upload/`
 
 **Checkpoint**: User Stories 1, 2, AND 3 all work independently
 
