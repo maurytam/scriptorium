@@ -30,13 +30,13 @@ Web app layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.Infrastr
 
 **Purpose**: Scaffold the solution — no projects exist yet in this repository
 
-- [ ] T001 Create `Scriptorium.Core` (classlib), `Scriptorium.Infrastructure` (classlib), and `Scriptorium.API` (webapi, minimal APIs) projects under `src/`, and add all three to `scriptorium.slnx`
-- [ ] T002 [P] Initialize the Angular workspace in `src/Scriptorium.Web/` per `plan.md`'s Project Structure
-- [ ] T003 [P] Create `Scriptorium.Core.Tests` and `Scriptorium.Infrastructure.Tests` xUnit projects under `tests/`, add xUnit, FluentAssertions, and Moq package references, and add both to `scriptorium.slnx`
-- [ ] T004 [P] Enable nullable reference types (`<Nullable>enable</Nullable>`) in every new `.csproj` under `src/` and `tests/` (Constitution III)
-- [ ] T005 [P] Add `PdfPig` and `DocumentFormat.OpenXml` package references to `src/Scriptorium.Infrastructure/Scriptorium.Infrastructure.csproj`
-- [ ] T006 [P] Add `Microsoft.EntityFrameworkCore.Sqlite` and `Microsoft.EntityFrameworkCore.Design` package references to `src/Scriptorium.Infrastructure/Scriptorium.Infrastructure.csproj`
-- [ ] T007 Add project references: `Scriptorium.Infrastructure` → `Scriptorium.Core`; `Scriptorium.API` → `Scriptorium.Core` and `Scriptorium.Infrastructure`; `Scriptorium.Core.Tests` → `Scriptorium.Core`; `Scriptorium.Infrastructure.Tests` → `Scriptorium.Infrastructure`
+- [X] T001 Create `Scriptorium.Core` (classlib), `Scriptorium.Infrastructure` (classlib), and `Scriptorium.API` (webapi, minimal APIs) projects under `src/`, and add all three to `scriptorium.slnx`
+- [X] T002 [P] Initialize the Angular workspace in `src/Scriptorium.Web/` per `plan.md`'s Project Structure
+- [X] T003 [P] Create `Scriptorium.Core.Tests` and `Scriptorium.Infrastructure.Tests` xUnit projects under `tests/`, add xUnit, FluentAssertions, and Moq package references, and add both to `scriptorium.slnx`
+- [X] T004 [P] Enable nullable reference types (`<Nullable>enable</Nullable>`) in every new `.csproj` under `src/` and `tests/` (Constitution III)
+- [X] T005 [P] Add `PdfPig` and `DocumentFormat.OpenXml` package references to `src/Scriptorium.Infrastructure/Scriptorium.Infrastructure.csproj`
+- [X] T006 [P] Add `Microsoft.EntityFrameworkCore.Sqlite` and `Microsoft.EntityFrameworkCore.Design` package references to `src/Scriptorium.Infrastructure/Scriptorium.Infrastructure.csproj`
+- [X] T007 Add project references: `Scriptorium.Infrastructure` → `Scriptorium.Core`; `Scriptorium.API` → `Scriptorium.Core` and `Scriptorium.Infrastructure`; `Scriptorium.Core.Tests` → `Scriptorium.Core`; `Scriptorium.Infrastructure.Tests` → `Scriptorium.Infrastructure`
 
 ---
 
@@ -46,29 +46,29 @@ Web app layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.Infrastr
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 [P] Create `DocumentStatus` enum (`Processing`, `Ready`, `Failed`) in `src/Scriptorium.Core/Enums/DocumentStatus.cs`
-- [ ] T009 [P] Create the `Result<T>` type in `src/Scriptorium.Core/Results/Result.cs` (Constitution IV — no raw exceptions across layer boundaries)
-- [ ] T010 [P] Create the `Document` entity in `src/Scriptorium.Core/Entities/Document.cs` per `data-model.md` (Id, FileName, FileType, FileSizeBytes, StoragePath, UploadDate, IsPrivate, Status, FailureReason)
-- [ ] T011 [P] Create the `ExtractedText` entity in `src/Scriptorium.Core/Entities/ExtractedText.cs` per `data-model.md` (DocumentId, Content, ExtractedAt)
-- [ ] T012 [P] Define `IDocumentParser` in `src/Scriptorium.Core/Interfaces/IDocumentParser.cs` (`SupportedFileType` + `Task<Result<string>> ExtractTextAsync(Stream content, CancellationToken ct)`)
-- [ ] T013 [P] Define `IDocumentRepository` in `src/Scriptorium.Core/Interfaces/IDocumentRepository.cs` (`AddAsync`, `GetByIdAsync`, `UpdateStatusAsync`, `SaveExtractedTextAsync`)
-- [ ] T014 [P] Implement `PdfDocumentParser` in `src/Scriptorium.Infrastructure/Parsing/PdfDocumentParser.cs` using PdfPig; return `Result` failures for encrypted/corrupted/no-extractable-text PDFs per `research.md` §4
-- [ ] T015 [P] Implement `WordDocumentParser` in `src/Scriptorium.Infrastructure/Parsing/WordDocumentParser.cs` using DocumentFormat.OpenXml; return a `Result` failure on `OpenXmlPackageException`
-- [ ] T016 [P] Implement `ExcelDocumentParser` in `src/Scriptorium.Infrastructure/Parsing/ExcelDocumentParser.cs` using DocumentFormat.OpenXml, concatenating text across all worksheets
-- [ ] T017 [P] Implement `TextDocumentParser` in `src/Scriptorium.Infrastructure/Parsing/TextDocumentParser.cs` reading UTF-8 content
-- [ ] T018 [P] Unit tests for `PdfDocumentParser` in `tests/Scriptorium.Infrastructure.Tests/Parsing/PdfDocumentParserTests.cs` (valid, corrupted, encrypted, image-only PDFs)
-- [ ] T019 [P] Unit tests for `WordDocumentParser` in `tests/Scriptorium.Infrastructure.Tests/Parsing/WordDocumentParserTests.cs` (valid and corrupted `.docx`)
-- [ ] T020 [P] Unit tests for `ExcelDocumentParser` in `tests/Scriptorium.Infrastructure.Tests/Parsing/ExcelDocumentParserTests.cs` (valid multi-sheet and corrupted `.xlsx`)
-- [ ] T021 [P] Unit tests for `TextDocumentParser` in `tests/Scriptorium.Infrastructure.Tests/Parsing/TextDocumentParserTests.cs`
-- [ ] T022 Create `ScriptoriumDbContext` in `src/Scriptorium.Infrastructure/Persistence/ScriptoriumDbContext.cs` mapping `Document` and `ExtractedText` per `data-model.md` (depends on T010, T011)
-- [ ] T023 Generate the initial EF Core migration (`dotnet ef migrations add InitialCreate --project src/Scriptorium.Infrastructure --startup-project src/Scriptorium.API`) (depends on T022)
-- [ ] T024 Implement `DocumentRepository` in `src/Scriptorium.Infrastructure/Persistence/DocumentRepository.cs` implementing `IDocumentRepository` (depends on T013, T022)
-- [ ] T025 [P] Unit tests for `DocumentRepository` in `tests/Scriptorium.Infrastructure.Tests/Persistence/DocumentRepositoryTests.cs` (SQLite in-memory provider)
-- [ ] T026 Implement `LocalFileStore` in `src/Scriptorium.Infrastructure/Storage/LocalFileStore.cs`, saving original file bytes under the app-data directory and returning the storage path, per `research.md` §2
-- [ ] T027 [P] Unit tests for `LocalFileStore` in `tests/Scriptorium.Infrastructure.Tests/Storage/LocalFileStoreTests.cs`
-- [ ] T028 Implement `DocumentProcessingQueue` (bounded `Channel<Guid>` + `BackgroundService`) in `src/Scriptorium.Infrastructure/Processing/DocumentProcessingQueue.cs`: dequeues a document id, resolves the matching `IDocumentParser` by file type, calls `ExtractTextAsync`, and updates the `Document` to `Ready` (+ saves `ExtractedText`) or `Failed` (+ reason) via `IDocumentRepository`, per `research.md` §1 (depends on T012, T013, T014–T017, T024)
-- [ ] T029 [P] Unit tests for `DocumentProcessingQueue` in `tests/Scriptorium.Infrastructure.Tests/Processing/DocumentProcessingQueueTests.cs`, covering both the `Ready` and `Failed` transitions with mocked `IDocumentParser`/`IDocumentRepository`
-- [ ] T030 Register `ScriptoriumDbContext`, `IDocumentRepository`, all four `IDocumentParser` implementations, and `DocumentProcessingQueue` in `src/Scriptorium.API/Program.cs`'s DI container (Constitution V — constructor injection only)
+- [X] T008 [P] Create `DocumentStatus` enum (`Processing`, `Ready`, `Failed`) in `src/Scriptorium.Core/Enums/DocumentStatus.cs`
+- [X] T009 [P] Create the `Result<T>` type in `src/Scriptorium.Core/Results/Result.cs` (Constitution IV — no raw exceptions across layer boundaries)
+- [X] T010 [P] Create the `Document` entity in `src/Scriptorium.Core/Entities/Document.cs` per `data-model.md` (Id, FileName, FileType, FileSizeBytes, StoragePath, UploadDate, IsPrivate, Status, FailureReason)
+- [X] T011 [P] Create the `ExtractedText` entity in `src/Scriptorium.Core/Entities/ExtractedText.cs` per `data-model.md` (DocumentId, Content, ExtractedAt)
+- [X] T012 [P] Define `IDocumentParser` in `src/Scriptorium.Core/Interfaces/IDocumentParser.cs` (`SupportedFileType` + `Task<Result<string>> ExtractTextAsync(Stream content, CancellationToken ct)`)
+- [X] T013 [P] Define `IDocumentRepository` in `src/Scriptorium.Core/Interfaces/IDocumentRepository.cs` (`AddAsync`, `GetByIdAsync`, `UpdateStatusAsync`, `SaveExtractedTextAsync`)
+- [X] T014 [P] Implement `PdfDocumentParser` in `src/Scriptorium.Infrastructure/Parsing/PdfDocumentParser.cs` using PdfPig; return `Result` failures for encrypted/corrupted/no-extractable-text PDFs per `research.md` §4
+- [X] T015 [P] Implement `WordDocumentParser` in `src/Scriptorium.Infrastructure/Parsing/WordDocumentParser.cs` using DocumentFormat.OpenXml; return a `Result` failure on `OpenXmlPackageException`
+- [X] T016 [P] Implement `ExcelDocumentParser` in `src/Scriptorium.Infrastructure/Parsing/ExcelDocumentParser.cs` using DocumentFormat.OpenXml, concatenating text across all worksheets
+- [X] T017 [P] Implement `TextDocumentParser` in `src/Scriptorium.Infrastructure/Parsing/TextDocumentParser.cs` reading UTF-8 content
+- [X] T018 [P] Unit tests for `PdfDocumentParser` in `tests/Scriptorium.Infrastructure.Tests/Parsing/PdfDocumentParserTests.cs` (valid, corrupted, encrypted, image-only PDFs)
+- [X] T019 [P] Unit tests for `WordDocumentParser` in `tests/Scriptorium.Infrastructure.Tests/Parsing/WordDocumentParserTests.cs` (valid and corrupted `.docx`)
+- [X] T020 [P] Unit tests for `ExcelDocumentParser` in `tests/Scriptorium.Infrastructure.Tests/Parsing/ExcelDocumentParserTests.cs` (valid multi-sheet and corrupted `.xlsx`)
+- [X] T021 [P] Unit tests for `TextDocumentParser` in `tests/Scriptorium.Infrastructure.Tests/Parsing/TextDocumentParserTests.cs`
+- [X] T022 Create `ScriptoriumDbContext` in `src/Scriptorium.Infrastructure/Persistence/ScriptoriumDbContext.cs` mapping `Document` and `ExtractedText` per `data-model.md` (depends on T010, T011)
+- [X] T023 Generate the initial EF Core migration (`dotnet ef migrations add InitialCreate --project src/Scriptorium.Infrastructure --startup-project src/Scriptorium.API`) (depends on T022)
+- [X] T024 Implement `DocumentRepository` in `src/Scriptorium.Infrastructure/Persistence/DocumentRepository.cs` implementing `IDocumentRepository` (depends on T013, T022)
+- [X] T025 [P] Unit tests for `DocumentRepository` in `tests/Scriptorium.Infrastructure.Tests/Persistence/DocumentRepositoryTests.cs` (SQLite in-memory provider)
+- [X] T026 Implement `LocalFileStore` in `src/Scriptorium.Infrastructure/Storage/LocalFileStore.cs`, saving original file bytes under the app-data directory and returning the storage path, per `research.md` §2
+- [X] T027 [P] Unit tests for `LocalFileStore` in `tests/Scriptorium.Infrastructure.Tests/Storage/LocalFileStoreTests.cs`
+- [X] T028 Implement `DocumentProcessingQueue` (bounded `Channel<Guid>` + `BackgroundService`) in `src/Scriptorium.Infrastructure/Processing/DocumentProcessingQueue.cs`: dequeues a document id, resolves the matching `IDocumentParser` by file type, calls `ExtractTextAsync`, and updates the `Document` to `Ready` (+ saves `ExtractedText`) or `Failed` (+ reason) via `IDocumentRepository`, per `research.md` §1 (depends on T012, T013, T014–T017, T024)
+- [X] T029 [P] Unit tests for `DocumentProcessingQueue` in `tests/Scriptorium.Infrastructure.Tests/Processing/DocumentProcessingQueueTests.cs`, covering both the `Ready` and `Failed` transitions with mocked `IDocumentParser`/`IDocumentRepository`
+- [X] T030 Register `ScriptoriumDbContext`, `IDocumentRepository`, all four `IDocumentParser` implementations, and `DocumentProcessingQueue` in `src/Scriptorium.API/Program.cs`'s DI container (Constitution V — constructor injection only)
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
@@ -80,14 +80,14 @@ Web app layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.Infrastr
 
 **Independent Test**: Upload a valid file of each supported type and confirm the document is stored, its extracted text is retrievable by document ID, and its status becomes "ready".
 
-- [ ] T031 [US1] Implement `DocumentUploadService` in `src/Scriptorium.Core/Services/DocumentUploadService.cs`: accepts a stream + filename + `isPrivate`, saves the file via `LocalFileStore`, creates a `Document` row with status `Processing`, enqueues it on `DocumentProcessingQueue`, and returns `Result<Document>` (happy path only) (depends on T009, T010, T013, T026, T028)
-- [ ] T032 [P] [US1] Unit tests for `DocumentUploadService` happy-path scenarios in `tests/Scriptorium.Core.Tests/Services/DocumentUploadServiceTests.cs`
-- [ ] T033 [US1] Implement `POST /api/documents` (happy path, `202 Accepted`) in `src/Scriptorium.API/Endpoints/DocumentEndpoints.cs` per `contracts/documents-api.md` (depends on T031)
-- [ ] T034 [US1] Implement `GET /api/documents/{id}` in `src/Scriptorium.API/Endpoints/DocumentEndpoints.cs` per `contracts/documents-api.md` (depends on T024)
-- [ ] T035 [US1] Implement `GET /api/documents/{id}/text` in `src/Scriptorium.API/Endpoints/DocumentEndpoints.cs` per `contracts/documents-api.md` (depends on T024)
-- [ ] T036 [P] [US1] Integration tests for the upload → ready flow (`WebApplicationFactory`) in `tests/Scriptorium.Infrastructure.Tests/Endpoints/DocumentUploadEndpointTests.cs`, covering all four supported formats
-- [ ] T037 [US1] Build the Angular upload component (file picker + submit) in `src/Scriptorium.Web/src/app/documents/upload/`, calling `POST /api/documents`
-- [ ] T038 [US1] Add status polling against `GET /api/documents/{id}` to the upload flow in `src/Scriptorium.Web/src/app/documents/upload/` until a terminal status is reached
+- [X] T031 [US1] Implement `DocumentUploadService` in `src/Scriptorium.Core/Services/DocumentUploadService.cs`: accepts a stream + filename + `isPrivate`, saves the file via `LocalFileStore`, creates a `Document` row with status `Processing`, enqueues it on `DocumentProcessingQueue`, and returns `Result<Document>` (happy path only) (depends on T009, T010, T013, T026, T028)
+- [X] T032 [P] [US1] Unit tests for `DocumentUploadService` happy-path scenarios in `tests/Scriptorium.Core.Tests/Services/DocumentUploadServiceTests.cs`
+- [X] T033 [US1] Implement `POST /api/documents` (happy path, `202 Accepted`) in `src/Scriptorium.API/Endpoints/DocumentEndpoints.cs` per `contracts/documents-api.md` (depends on T031)
+- [X] T034 [US1] Implement `GET /api/documents/{id}` in `src/Scriptorium.API/Endpoints/DocumentEndpoints.cs` per `contracts/documents-api.md` (depends on T024)
+- [X] T035 [US1] Implement `GET /api/documents/{id}/text` in `src/Scriptorium.API/Endpoints/DocumentEndpoints.cs` per `contracts/documents-api.md` (depends on T024)
+- [X] T036 [P] [US1] Integration tests for the upload → ready flow (`WebApplicationFactory`) in `tests/Scriptorium.Infrastructure.Tests/Endpoints/DocumentUploadEndpointTests.cs`, covering all four supported formats
+- [X] T037 [US1] Build the Angular upload component (file picker + submit) in `src/Scriptorium.Web/src/app/documents/upload/`, calling `POST /api/documents`
+- [X] T038 [US1] Add status polling against `GET /api/documents/{id}` to the upload flow in `src/Scriptorium.Web/src/app/documents/upload/` until a terminal status is reached
 
 **Checkpoint**: User Story 1 is fully functional and testable independently
 
