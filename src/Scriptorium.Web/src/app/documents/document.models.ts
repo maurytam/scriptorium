@@ -13,3 +13,19 @@ export interface UploadedDocument {
 export interface DocumentDetails extends UploadedDocument {
   failureReason: string | null;
 }
+
+export interface UploadProgress {
+  kind: 'progress';
+  percent: number;
+}
+
+export interface UploadCompleted {
+  kind: 'completed';
+  document: UploadedDocument;
+}
+
+export type UploadEvent = UploadProgress | UploadCompleted;
+
+export interface UploadLimits {
+  maxSizeBytes: number;
+}

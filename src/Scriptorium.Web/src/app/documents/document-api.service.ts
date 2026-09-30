@@ -1,8 +1,8 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, filter, switchMap, take, timer } from 'rxjs';
+import { Observable, filter, map, switchMap, take, timer } from 'rxjs';
 
-import { DocumentDetails, UploadedDocument } from './document.models';
+import { DocumentDetails, UploadEvent, UploadLimits, UploadedDocument } from './document.models';
 
 const DOCUMENTS_URL = '/api/documents';
 
@@ -10,10 +10,20 @@ const DOCUMENTS_URL = '/api/documents';
 export class DocumentApiService {
   private readonly http = inject(HttpClient);
 
-  upload(file: File): Observable<UploadedDocument> {
+  /** Emits progress events while the file is being sent, then a single completed event. */
+  upload(file: File): Observable<UploadEvent> {
     const form = new FormData();
     form.append('file', file, file.name);
-    return this.http.post<UploadedDocument>(DOCUMENTS_URL, form);
+    return this.http
+      .post<UploadedDocument>(DOCUMENTS_URL, form, { observe: 'events', reportProgress: true })
+      .pipe(
+        map((event) => this.toUploadEvent(event)),
+        filter((event): event is UploadEvent => event !== null),
+      );
+  }
+
+  getLimits(): Observable<UploadLimits> {
+    return this.http.get<UploadLimits>(`${DOCUMENTS_URL}/limits`);
   }
 
   getById(id: string): Observable<DocumentDetails> {
@@ -27,5 +37,18 @@ export class DocumentApiService {
       filter((document) => document.status !== 'processing'),
       take(1),
     );
+  }
+
+  private toUploadEvent(event: HttpEvent<UploadedDocument>): UploadEvent | null {
+    if (event.type === HttpEventType.UploadProgress) {
+      const percent = event.total ? Math.round((100 * event.loaded) / event.total) : 0;
+      return { kind: 'progress', percent };
+    }
+
+    if (event.type === HttpEventType.Response && event.body) {
+      return { kind: 'completed', document: event.body };
+    }
+
+    return null;
   }
 }

@@ -48,3 +48,5 @@ public sealed record ExtractedTextDto(Guid DocumentId, string Content, DateTimeO
 }
 
 public sealed record ErrorDto(string Error);
+
+public sealed record UploadLimitsDto(long MaxSizeBytes);

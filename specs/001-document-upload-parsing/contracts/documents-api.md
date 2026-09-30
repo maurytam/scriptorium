@@ -35,6 +35,18 @@ Upload a new document.
 
 Corresponds to spec FR-001, FR-002, FR-003, FR-007; User Stories 1–3.
 
+## GET /api/documents/limits
+
+Get the upload limits currently enforced by the server, so the UI can reject an oversized file
+before sending it (a browser cannot reliably read a `413` returned while it is still uploading).
+
+**Response**: `200 OK`
+```json
+{ "maxSizeBytes": 52428800 }
+```
+
+Corresponds to spec FR-002 ("showing a clear message before processing begins").
+
 ## GET /api/documents
 
 List all uploaded documents, most recent first.
