@@ -31,6 +31,27 @@ public sealed class DocumentRepository : IDocumentRepository
         return await db.Documents.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id, ct);
     }
 
+    public async Task<IReadOnlyList<Document>> GetAllAsync(CancellationToken ct)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync(ct);
+        return await db.Documents.AsNoTracking().OrderByDescending(d => d.UploadDate).ToListAsync(ct);
+    }
+
+    public async Task<Document?> FindByContentHashAsync(string contentHash, CancellationToken ct)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync(ct);
+        return await db.Documents.AsNoTracking().FirstOrDefaultAsync(d => d.ContentHash == contentHash, ct);
+    }
+
+    public Task<Result> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        return WriteAsync("Unable to delete the document", ct, async db =>
+        {
+            var removed = await db.Documents.Where(d => d.Id == id).ExecuteDeleteAsync(ct);
+            return removed > 0 ? Result.Success() : Result.Failure($"Document {id} not found");
+        });
+    }
+
     public Task<Result> UpdateStatusAsync(
         Guid id, DocumentStatus status, string? failureReason, CancellationToken ct)
     {

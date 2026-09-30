@@ -77,4 +77,25 @@ public sealed class LocalFileStoreTests : IDisposable
 
         opened.IsSuccess.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Delete_RemovesOnlyThatDocumentsFolder()
+    {
+        var doomed = Guid.NewGuid();
+        var kept = Guid.NewGuid();
+        await _store.SaveAsync(doomed, "a.txt", new MemoryStream([1]), CancellationToken.None);
+        await _store.SaveAsync(kept, "b.txt", new MemoryStream([2]), CancellationToken.None);
+
+        var result = _store.Delete(doomed);
+
+        result.IsSuccess.Should().BeTrue();
+        Directory.Exists(Path.Combine(_root, doomed.ToString())).Should().BeFalse();
+        File.Exists(Path.Combine(_root, kept.ToString(), "b.txt")).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Delete_NothingStored_Succeeds()
+    {
+        _store.Delete(Guid.NewGuid()).IsSuccess.Should().BeTrue();
+    }
 }

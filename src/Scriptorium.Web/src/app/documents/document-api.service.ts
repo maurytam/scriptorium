@@ -1,14 +1,32 @@
 import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, filter, map, switchMap, take, timer } from 'rxjs';
+import { Observable, Subject, filter, map, switchMap, take, timer } from 'rxjs';
 
-import { DocumentDetails, UploadEvent, UploadLimits, UploadedDocument } from './document.models';
+import {
+  DocumentDetails,
+  DocumentSummary,
+  UploadEvent,
+  UploadLimits,
+  UploadedDocument,
+} from './document.models';
 
 const DOCUMENTS_URL = '/api/documents';
 
 @Injectable({ providedIn: 'root' })
 export class DocumentApiService {
   private readonly http = inject(HttpClient);
+  private readonly changed = new Subject<void>();
+
+  /** Emits whenever a document was added, so the list can refresh. */
+  readonly documentsChanged: Observable<void> = this.changed.asObservable();
+
+  notifyDocumentsChanged(): void {
+    this.changed.next();
+  }
+
+  list(): Observable<DocumentSummary[]> {
+    return this.http.get<DocumentSummary[]>(DOCUMENTS_URL);
+  }
 
   /** Emits progress events while the file is being sent, then a single completed event. */
   upload(file: File, isPrivate = false): Observable<UploadEvent> {
@@ -21,6 +39,10 @@ export class DocumentApiService {
         map((event) => this.toUploadEvent(event)),
         filter((event): event is UploadEvent => event !== null),
       );
+  }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${DOCUMENTS_URL}/${id}`);
   }
 
   getLimits(): Observable<UploadLimits> {

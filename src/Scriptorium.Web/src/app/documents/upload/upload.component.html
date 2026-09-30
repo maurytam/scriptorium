@@ -1,4 +1,4 @@
-<section class="upload">
+<section class="card upload">
   <h2>Upload a document</h2>
 
   <input
@@ -7,22 +7,24 @@
     (change)="onFileSelected($event)"
     [disabled]="state() === 'uploading' || state() === 'processing'"
   />
-  <label class="private">
-    <input
-      type="checkbox"
-      [checked]="isPrivate()"
-      (change)="onPrivateChanged($event)"
-      [disabled]="state() === 'uploading' || state() === 'processing'"
-    />
-    Mark as private
-  </label>
-  <button
-    type="button"
-    (click)="submit()"
-    [disabled]="!selectedFile() || !!tooLargeMessage() || state() === 'uploading' || state() === 'processing'"
-  >
-    Upload
-  </button>
+  <div class="upload-actions">
+    <label class="private">
+      <input
+        type="checkbox"
+        [checked]="isPrivate()"
+        (change)="onPrivateChanged($event)"
+        [disabled]="state() === 'uploading' || state() === 'processing'"
+      />
+      Mark as private
+    </label>
+    <button
+      type="button"
+      (click)="submit()"
+      [disabled]="!selectedFile() || !!tooLargeMessage() || state() === 'uploading' || state() === 'processing'"
+    >
+      Upload
+    </button>
+  </div>
 
   @if (tooLargeMessage(); as message) {
     <p class="status failed">{{ message }}</p>

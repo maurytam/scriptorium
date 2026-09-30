@@ -40,6 +40,89 @@ public sealed class DocumentRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAllAsync_NoDocuments_ReturnsEmptyList()
+    {
+        var all = await _repository.GetAllAsync(CancellationToken.None);
+
+        all.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ReturnsDocumentsMostRecentFirst()
+    {
+        var oldest = NewDocument(uploadDate: new DateTimeOffset(2026, 8, 1, 9, 0, 0, TimeSpan.Zero));
+        var newest = NewDocument(uploadDate: new DateTimeOffset(2026, 8, 3, 9, 0, 0, TimeSpan.Zero));
+        var middle = NewDocument(uploadDate: new DateTimeOffset(2026, 8, 2, 9, 0, 0, TimeSpan.Zero));
+        foreach (var document in new[] { oldest, newest, middle })
+        {
+            await _repository.AddAsync(document, CancellationToken.None);
+        }
+
+        var all = await _repository.GetAllAsync(CancellationToken.None);
+
+        all.Select(d => d.Id).Should().Equal(newest.Id, middle.Id, oldest.Id);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_KeepsDocumentsWithTheSameFileNameAsSeparateEntries()
+    {
+        await _repository.AddAsync(NewDocument(), CancellationToken.None);
+        await _repository.AddAsync(NewDocument(), CancellationToken.None);
+
+        var all = await _repository.GetAllAsync(CancellationToken.None);
+
+        all.Should().HaveCount(2);
+        all.Select(d => d.Id).Distinct().Should().HaveCount(2);
+        all.Should().OnlyContain(d => d.FileName == "report.pdf");
+    }
+
+    [Fact]
+    public async Task FindByContentHashAsync_ReturnsTheDocumentWithThatHash()
+    {
+        var document = NewDocument(contentHash: "ABC123");
+        await _repository.AddAsync(document, CancellationToken.None);
+        await _repository.AddAsync(NewDocument(contentHash: "OTHER"), CancellationToken.None);
+
+        var found = await _repository.FindByContentHashAsync("ABC123", CancellationToken.None);
+
+        found!.Id.Should().Be(document.Id);
+    }
+
+    [Fact]
+    public async Task FindByContentHashAsync_UnknownHash_ReturnsNull()
+    {
+        await _repository.AddAsync(NewDocument(contentHash: null), CancellationToken.None);
+
+        (await _repository.FindByContentHashAsync("ABC123", CancellationToken.None)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_RemovesTheDocumentAndItsExtractedText()
+    {
+        var document = NewDocument();
+        var other = NewDocument();
+        await _repository.AddAsync(document, CancellationToken.None);
+        await _repository.AddAsync(other, CancellationToken.None);
+        await _repository.SaveExtractedTextAsync(
+            new ExtractedText { DocumentId = document.Id, Content = "x", ExtractedAt = DateTimeOffset.UtcNow }, CancellationToken.None);
+
+        var deleted = await _repository.DeleteAsync(document.Id, CancellationToken.None);
+
+        deleted.IsSuccess.Should().BeTrue();
+        (await _repository.GetByIdAsync(document.Id, CancellationToken.None)).Should().BeNull();
+        (await _repository.GetExtractedTextAsync(document.Id, CancellationToken.None)).Should().BeNull();
+        (await _repository.GetByIdAsync(other.Id, CancellationToken.None)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_UnknownId_ReturnsFailure()
+    {
+        var deleted = await _repository.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
+
+        deleted.IsSuccess.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task GetByIdAsync_UnknownId_ReturnsNull()
     {
         var loaded = await _repository.GetByIdAsync(Guid.NewGuid(), CancellationToken.None);
@@ -117,14 +200,15 @@ public sealed class DocumentRepositoryTests : IDisposable
         saved.IsSuccess.Should().BeFalse();
     }
 
-    private static Document NewDocument(Guid? id = null) => new()
+    private static Document NewDocument(Guid? id = null, DateTimeOffset? uploadDate = null, string? contentHash = "HASH") => new()
     {
         Id = id ?? Guid.NewGuid(),
         FileName = "report.pdf",
         FileType = "pdf",
         FileSizeBytes = 1234,
         StoragePath = "/tmp/report.pdf",
-        UploadDate = new DateTimeOffset(2026, 8, 3, 12, 0, 0, TimeSpan.Zero),
+        ContentHash = contentHash,
+        UploadDate = uploadDate ?? new DateTimeOffset(2026, 8, 3, 12, 0, 0, TimeSpan.Zero),
         IsPrivate = true,
         Status = DocumentStatus.Processing
     };

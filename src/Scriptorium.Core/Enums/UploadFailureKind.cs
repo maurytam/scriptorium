@@ -4,5 +4,6 @@ public enum UploadFailureKind
 {
     UnsupportedType,
     FileTooLarge,
+    Duplicate,
     Internal
 }

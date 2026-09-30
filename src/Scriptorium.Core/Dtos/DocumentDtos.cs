@@ -42,6 +42,23 @@ public sealed record DocumentDetailsDto(
         document.FailureReason);
 }
 
+public sealed record DocumentSummaryDto(
+    Guid Id,
+    string FileName,
+    string FileType,
+    DateTimeOffset UploadDate,
+    bool IsPrivate,
+    string Status)
+{
+    public static DocumentSummaryDto From(Document document) => new(
+        document.Id,
+        document.FileName,
+        document.FileType,
+        document.UploadDate,
+        document.IsPrivate,
+        document.Status.ToString().ToLowerInvariant());
+}
+
 public sealed record ExtractedTextDto(Guid DocumentId, string Content, DateTimeOffset ExtractedAt)
 {
     public static ExtractedTextDto From(ExtractedText text) => new(text.DocumentId, text.Content, text.ExtractedAt);

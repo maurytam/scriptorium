@@ -41,6 +41,15 @@ public class DocumentDtosTests
     }
 
     [Fact]
+    public void DocumentSummaryDto_From_MapsListFieldsIncludingIsPrivate()
+    {
+        var dto = DocumentSummaryDto.From(Failed);
+
+        dto.Should().Be(new DocumentSummaryDto(
+            Failed.Id, "report.pdf", "pdf", Failed.UploadDate, IsPrivate: true, Status: "failed"));
+    }
+
+    [Fact]
     public void ExtractedTextDto_From_MapsFields()
     {
         var text = new ExtractedText { DocumentId = Guid.NewGuid(), Content = "abc", ExtractedAt = DateTimeOffset.UtcNow };

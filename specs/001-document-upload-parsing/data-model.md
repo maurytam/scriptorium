@@ -11,6 +11,7 @@ Represents an uploaded file and its processing state. Defined in `Scriptorium.Co
 | `FileType` | `string` | Normalized format: `pdf` \| `docx` \| `xlsx` \| `txt` |
 | `FileSizeBytes` | `long` | Size of the original file; MUST be ≤ 52,428,800 (50 MB, FR-002) |
 | `StoragePath` | `string` | Local filesystem path to the retained original file (FR-005) |
+| `ContentHash` | `string?` | SHA-256 of the uploaded content (hex), used to reject duplicates (FR-012); `null` for documents uploaded before duplicate detection |
 | `UploadDate` | `DateTimeOffset` | Set when the upload is accepted |
 | `IsPrivate` | `bool` | Defaults to `false` when not specified at upload (FR-007) |
 | `Status` | `DocumentStatus` | `Processing` \| `Ready` \| `Failed` (FR-008) |
@@ -24,6 +25,11 @@ Represents an uploaded file and its processing state. Defined in `Scriptorium.Co
 - `FailureReason` MUST be non-empty when `Status` is `Failed`, and MUST be `null` for
   `Processing`/`Ready` (keeps the "visible reason" requirement enforceable at the type
   level via the `Result<T>` pattern used to construct failure transitions).
+
+- Two documents MAY share a `FileName`, but no two documents with a non-null `ContentHash`
+  may share it (enforced by the upload service, FR-012).
+- A `Document` in a final status (`Ready`/`Failed`) can be deleted (FR-013); its
+  `ExtractedText` row is removed with it (cascade) and its stored file folder is deleted.
 
 **State transitions** (`DocumentStatus`):
 

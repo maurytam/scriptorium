@@ -23,6 +23,7 @@ public class UploadResultTests
     [Theory]
     [InlineData(UploadFailureKind.UnsupportedType)]
     [InlineData(UploadFailureKind.FileTooLarge)]
+    [InlineData(UploadFailureKind.Duplicate)]
     [InlineData(UploadFailureKind.Internal)]
     public void Failure_CarriesKindAndError(UploadFailureKind kind)
     {

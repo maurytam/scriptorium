@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using FluentAssertions;
 using Moq;
 using Scriptorium.Core.Entities;
@@ -50,6 +51,7 @@ public class DocumentUploadServiceTests
             FileType = expectedType,
             FileSizeBytes = 1234,
             StoragePath = "/data/doc/report.pdf",
+            ContentHash = Convert.ToHexString(SHA256.HashData(new byte[] { 1, 2, 3 })),
             UploadDate = Now,
             IsPrivate = false,
             Status = DocumentStatus.Processing
@@ -74,6 +76,71 @@ public class DocumentUploadServiceTests
 
         result.IsSuccess.Should().BeFalse();
         _repository.Verify(r => r.AddAsync(It.IsAny<Document>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UploadAsync_StoresTheSha256OfTheContentOnTheDocument()
+    {
+        byte[] bytes = [1, 2, 3, 4];
+
+        var result = await _service.UploadAsync(new MemoryStream(bytes), "a.txt", 4, isPrivate: false, CancellationToken.None);
+
+        result.Document!.ContentHash.Should().Be(Convert.ToHexString(SHA256.HashData(bytes)));
+    }
+
+    [Fact]
+    public async Task UploadAsync_ContentAlreadyUploaded_RejectsNamingTheExistingDocumentAndStoresNothing()
+    {
+        byte[] bytes = [9, 9, 9];
+        var hash = Convert.ToHexString(SHA256.HashData(bytes));
+        _repository.Setup(r => r.FindByContentHashAsync(hash, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Document { FileName = "original.txt", ContentHash = hash });
+
+        var result = await _service.UploadAsync(new MemoryStream(bytes), "copy-renamed.txt", 3, isPrivate: false, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.FailureKind.Should().Be(UploadFailureKind.Duplicate);
+        result.Error.Should().Be("This file has already been uploaded as 'original.txt'.");
+        VerifyNothingStoredOrQueued();
+    }
+
+    [Fact]
+    public async Task UploadAsync_SameNameButDifferentContent_IsAccepted()
+    {
+        _repository.Setup(r => r.FindByContentHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Document?)null);
+
+        var result = await _service.UploadAsync(new MemoryStream([7, 7]), "report.pdf", 2, isPrivate: false, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UploadAsync_RewindsTheStreamSoTheWholeFileIsStored()
+    {
+        byte[] bytes = [5, 6, 7, 8, 9];
+        byte[]? stored = null;
+        _fileStore.Setup(f => f.SaveAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, string, Stream, CancellationToken>((_, _, stream, _) =>
+            {
+                using var copy = new MemoryStream();
+                stream.CopyTo(copy);
+                stored = copy.ToArray();
+            })
+            .ReturnsAsync(Result<string>.Success("/data/doc/a.txt"));
+
+        await _service.UploadAsync(new MemoryStream(bytes), "a.txt", bytes.Length, isPrivate: false, CancellationToken.None);
+
+        stored.Should().Equal(bytes);
+    }
+
+    [Fact]
+    public async Task UploadAsync_StreamThatCannotBeRewound_ReturnsInternalFailure()
+    {
+        var result = await _service.UploadAsync(new NonSeekableStream(), "a.txt", 3, isPrivate: false, CancellationToken.None);
+
+        result.FailureKind.Should().Be(UploadFailureKind.Internal);
+        VerifyNothingStoredOrQueued();
     }
 
     [Fact]
@@ -183,4 +250,9 @@ public class DocumentUploadServiceTests
 
     private Task<UploadResult> UploadAsync(string fileName, long size) =>
         _service.UploadAsync(new MemoryStream([1, 2, 3]), fileName, size, isPrivate: false, CancellationToken.None);
+
+    private sealed class NonSeekableStream : MemoryStream
+    {
+        public override bool CanSeek => false;
+    }
 }

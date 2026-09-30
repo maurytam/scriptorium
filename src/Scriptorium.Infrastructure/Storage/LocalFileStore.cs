@@ -45,4 +45,22 @@ public sealed class LocalFileStore : IFileStore
             return Result<Stream>.Failure("Unable to read the stored file");
         }
     }
+
+    public Result Delete(Guid documentId)
+    {
+        try
+        {
+            var directory = Path.Combine(_rootPath, documentId.ToString());
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+
+            return Result.Success();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return Result.Failure("Unable to delete the stored file");
+        }
+    }
 }

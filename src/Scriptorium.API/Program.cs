@@ -39,6 +39,7 @@ builder.Services.AddSingleton(sp => new DocumentUploadService(
     sp.GetServices<IDocumentParser>(),
     sp.GetRequiredService<TimeProvider>(),
     maxSizeBytes));
+builder.Services.AddSingleton<DocumentDeletionService>();
 builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = maxSizeBytes + DocumentEndpoints.MultipartOverheadBytes);
 

@@ -14,6 +14,9 @@ public sealed class Document
 
     public string StoragePath { get; set; } = string.Empty;
 
+    /// <summary>SHA-256 of the uploaded content (hex); null for documents uploaded before duplicate detection.</summary>
+    public string? ContentHash { get; set; }
+
     public DateTimeOffset UploadDate { get; set; }
 
     public bool IsPrivate { get; set; }

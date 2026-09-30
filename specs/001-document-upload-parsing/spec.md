@@ -145,9 +145,13 @@ that status updates as processing completes.
   document is marked "failed" with a reason indicating the file is protected.
 - What happens when an Excel file has multiple sheets? Text from all sheets is extracted
   and stored as the document's extracted text.
-- What happens when two uploaded documents share the same filename? Each is stored as a
-  distinct document with its own unique identifier and appears as a separate entry in the
-  list.
+- What happens when two uploaded documents share the same filename but have different
+  content? Each is stored as a distinct document with its own unique identifier and appears
+  as a separate entry in the list.
+- What happens when the user uploads a file whose content was already uploaded (even under a
+  different name)? The upload is rejected before anything is stored, with a message naming
+  the existing document. Once that document is deleted, the same content can be uploaded
+  again. *(Added after review; replaces the earlier "same filename is always allowed" rule.)*
 
 ## Requirements *(mandatory)*
 
@@ -177,6 +181,12 @@ that status updates as processing completes.
 - **FR-011**: System MUST treat documents with no extractable text (e.g. image-only content
   or password-protected files) as parsing failures rather than silently producing an empty
   result.
+- **FR-012** *(added after review)*: System MUST reject an upload whose content is identical
+  (same SHA-256) to a document already uploaded, with a clear message naming that document,
+  and MUST NOT store anything for the rejected file.
+- **FR-013** *(added after review)*: System MUST allow the user to delete a document whose
+  status is "ready" or "failed", removing its record, its extracted text and its stored
+  file. Deleting a document that is still "processing" MUST be refused with a clear message.
 
 ### Key Entities
 
@@ -218,7 +228,11 @@ that status updates as processing completes.
   extracted text; selecting specific sheets is not supported in this feature.
 - Consistent with the product's v1.0 local-first, single-user scope, the document list
   shows all documents in the local instance — there is no per-user ownership or filtering.
-- Deleting or removing an uploaded document is not covered by this feature.
+- Deleting a document is limited to single documents in a final status ("ready" or
+  "failed"); there is no bulk delete, undo or trash. The UI asks for confirmation in the row
+  before deleting. *(Updated after review; originally out of scope.)*
+- Documents uploaded before duplicate detection have no content hash and are never reported
+  as duplicates.
 - Asking questions about a document, summarizing it, extracting entities from it, and
   batch-uploading multiple files at once are explicitly out of scope for this feature and
   will be addressed by separate features.
