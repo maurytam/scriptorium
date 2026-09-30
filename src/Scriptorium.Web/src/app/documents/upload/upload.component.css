@@ -1,0 +1,15 @@
+.upload {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 32rem;
+  margin: 2rem auto;
+}
+
+.status.ready {
+  color: #1b7f3b;
+}
+
+.status.failed {
+  color: #b3261e;
+}

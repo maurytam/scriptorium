@@ -55,3 +55,10 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Local SQLite database and uploaded files
+App_Data/
+
+# JetBrains Rider / IDE
+.idea/
+*.DotSettings.user

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Scriptorium.API/Scriptorium.API.csproj" />
+    <Project Path="src/Scriptorium.Core/Scriptorium.Core.csproj" />
+    <Project Path="src/Scriptorium.Infrastructure/Scriptorium.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Scriptorium.Core.Tests/Scriptorium.Core.Tests.csproj" />
+    <Project Path="tests/Scriptorium.Infrastructure.Tests/Scriptorium.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

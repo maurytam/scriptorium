@@ -1,0 +1,40 @@
+<section class="upload">
+  <h2>Upload a document</h2>
+
+  <input
+    type="file"
+    [accept]="acceptedTypes"
+    (change)="onFileSelected($event)"
+    [disabled]="state() === 'uploading' || state() === 'processing'"
+  />
+  <button
+    type="button"
+    (click)="submit()"
+    [disabled]="!selectedFile() || state() === 'uploading' || state() === 'processing'"
+  >
+    Upload
+  </button>
+
+  @switch (state()) {
+    @case ('uploading') {
+      <p class="status">Uploading…</p>
+    }
+    @case ('processing') {
+      <p class="status">Processing…</p>
+    }
+    @case ('done') {
+      @if (result(); as document) {
+        @if (document.status === 'ready') {
+          <p class="status ready">{{ document.fileName }} is ready.</p>
+        } @else {
+          <p class="status failed">
+            {{ document.fileName }} could not be processed: {{ document.failureReason }}
+          </p>
+        }
+      }
+    }
+    @case ('error') {
+      <p class="status failed">{{ errorMessage() }}</p>
+    }
+  }
+</section>
