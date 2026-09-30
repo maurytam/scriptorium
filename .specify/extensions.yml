@@ -7,7 +7,7 @@ hooks:
   - extension: git
     command: speckit.git.initialize
     enabled: true
-    optional: true
+    optional: false
     priority: 10
     prompt: Execute speckit.git.initialize?
     description: Initialize Git repository before constitution setup
@@ -16,7 +16,7 @@ hooks:
   - extension: git
     command: speckit.git.feature
     enabled: true
-    optional: true
+    optional: false
     priority: 10
     prompt: Execute speckit.git.feature?
     description: Create feature branch before specification
