@@ -78,8 +78,9 @@ validation (quickstart scenario 8).
 
 **Decision**: Pass the window size explicitly on every request (`Ollama:NumCtx`, default **8192**
 tokens) and enforce a character budget before calling the model (`Qa:MaxDocumentCharacters`, default
-**18,000**). The budget is a deliberate under-estimate (about 3 characters per token in the worst case
-for Italian or English text) so that document, history, question and answer fit together. Beyond the
+**4,000**, lowered from the 18,000 first planned after the measurements of R13). The budget is a deliberate
+under-estimate (about 3 characters per token in the worst case; about 4.7 were measured on English text) so that
+document, history, question and answer fit together in the window. Beyond the
 budget the document is cut at the end and the response carries `truncated: true`, which the UI turns
 into the notice required by FR-008.
 
@@ -99,8 +100,8 @@ they can be raised on a machine with more memory.
 
 **Rationale**: `qwen3.5:9b` reports a "thinking" capability that is on by default, which would add a long
 hidden reasoning phase to every answer and threaten SC-001; a low temperature favours sticking to the
-text over inventing (SC-003). The exact switch in OllamaSharp 5.5.0 is confirmed by a short spike
-before the provider is written.
+text over inventing (SC-003). The switch in OllamaSharp 5.5.0 is `ChatRequest.Think = false`; the spike
+(R13) confirmed it.
 
 ## R7. Prompt design (FR-003, FR-012)
 
@@ -182,10 +183,44 @@ cannot be.
 | `Ollama:NumCtx` | `8192` | Working window requested from Ollama, in tokens |
 | `Ollama:TimeoutSeconds` | `120` | Longest wait for an answer |
 | `Qa:MaxQuestionLength` | `2000` | Longest accepted question, in characters |
-| `Qa:MaxDocumentCharacters` | `18000` | Document text sent to the model |
+| `Qa:MaxDocumentCharacters` | `4000` | Document text sent to the model (about one page; raise it on a machine with a GPU) |
 | `Qa:MaxHistoryExchanges` | `10` | Earlier exchanges sent as context |
-| `Qa:MaxHistoryCharacters` | `6000` | Cap on the history text sent as context |
+| `Qa:MaxHistoryCharacters` | `3000` | Cap on the history text sent as context |
 
 None of these are secrets. The base URL is not forced to be a loopback address, because the planned
 Docker Compose setup reaches Ollama by service name; keeping the traffic on the user's machine is a
 deployment property documented in the spec's assumptions and checked in the quickstart (SC-002).
+
+## R13. Spike results: OllamaSharp 5.5.0 and the local model (task T003, 2026-10-01)
+
+Measured on the author's machine (Intel Mac, **CPU only**, Ollama 0.35.0, `qwen3.5:9b`).
+
+**The library API**
+- `IOllamaApiClient.ChatAsync(ChatRequest, CancellationToken)` returns `IAsyncEnumerable<ChatResponseStream?>`;
+  the last chunk is a `ChatDoneResponseStream` with `PromptEvalCount`, `PromptEvalDuration` and `EvalCount`.
+- `ChatRequest` has `Model`, `Messages` (`Message(ChatRole, string)`), `Options` (`RequestOptions`, with `NumCtx` and
+  `Temperature`), `Stream` and `Think` (a bool converts implicitly). `ChatRole` offers `System`, `User`, `Assistant`.
+- `OllamaApiClient` can be built from an `HttpClient` (`OllamaApiClient(HttpClient, string defaultModel, ...)`), and the
+  `IOllamaApiClient` interface can be mocked.
+
+**Thinking** (R6 confirmed): the same question took 2.6 s with `Think = false` and 44.7 s with `Think` unset, the latter
+producing 752 characters of hidden reasoning; the answer was identical.
+
+**Window** (R5 confirmed): after a request with `NumCtx = 8192`, `ollama ps` reports a context of 8192.
+
+**Failures** (they shape `OllamaProvider`'s error mapping):
+- Server not reachable: `HttpRequestException` ("Connection refused", inner `SocketException`) → `Unavailable`.
+- Model not installed: `HttpRequestException` with status **404**, not an `OllamaException` → `Unavailable`.
+- Cancellation by our own timeout: `TaskCanceledException` (an `OperationCanceledException`) → `Timeout`.
+- **The library's `HttpClient` has a default timeout of 100 seconds**, which ends a long call with a `TaskCanceledException`
+  whose inner exception is a `TimeoutException`. The provider must therefore supply its own `HttpClient` with an infinite
+  timeout and enforce `Ollama:TimeoutSeconds` itself with a linked `CancellationTokenSource`, so that its own timeout,
+  the library's timeout and a cancellation by the caller can be told apart.
+
+**Speed on a CPU-only machine** (thinking off):
+- Loading the model on the first call: about 15 s; a short answer once loaded: 2.4 to 2.6 s.
+- The prompt is evaluated at about **27 tokens per second**: a 6,000-character document (1,276 tokens) took **50 to 65 s per
+  question, including follow-ups** (the prompt is evaluated again each time, no reuse was observed). A prompt of about 18,000
+  characters exceeded 100 s and would not fit the 120 s timeout.
+- Decision (user, 2026-10-01): defaults of **4,000 characters** of document and a **120 s** timeout; the history cap is lowered to
+  **3,000 characters** for the same reason (every follow-up pays for the whole prompt). A machine with a GPU can raise all three.
