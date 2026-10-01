@@ -62,3 +62,6 @@ App_Data/
 # JetBrains Rider / IDE
 .idea/
 *.DotSettings.user
+
+# Stray folders literally named "bin\Debug" / "bin\Release" (backslash in the name), created by the C# language server
+bin\\*
