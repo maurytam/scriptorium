@@ -39,7 +39,7 @@ need the real model (speed, unanswerable questions, follow-ups, no outbound traf
 questions on a typical document (SC-001); the call to the model gives up after 120 seconds (configurable)
 
 **Constraints**: Nothing leaves the user's computer (FR-004, SC-002); one question at a time (FR-005); working window
-of 8,192 tokens and a document budget of 18,000 characters, both configurable (research R5); the server keeps no
+of 8,192 tokens and a document budget of 4,000 characters, both configurable (research R5, R13); the server keeps no
 conversation state; the rest of the app stays usable while an answer is prepared (FR-011)
 
 **Scale/Scope**: Single local user; one document per conversation; at most 2,000 characters per question and the 10

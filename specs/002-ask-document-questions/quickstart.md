@@ -17,7 +17,7 @@ ConnectionStrings__Default="Data Source=/tmp/qa/t.db" Storage__LocalPath=/tmp/qa
 dotnet run --project src/Scriptorium.API
 ```
 
-Sample files: a short `.txt` with a few clear facts (names, dates, amounts); a long `.txt` of at least
+Sample files: a short `.txt` of **under 4,000 characters** with a few clear facts (names, dates, amounts), so it is not truncated; a long `.txt` of at least
 60,000 characters whose last paragraph contains a distinctive fact; a `.txt` marked private.
 
 ## Scenario 1 — Ask and answer (User Story 1)
