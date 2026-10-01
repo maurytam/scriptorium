@@ -142,10 +142,10 @@ Web app layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.Infrastr
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T053 [P] Add global exception-handling middleware in `src/Scriptorium.API/Program.cs` so an unhandled exception returns a generic 500 instead of crashing the process (belt-and-braces for FR-006)
+- [X] T053 [P] Add global exception-handling middleware in `src/Scriptorium.API/Program.cs` so an unhandled exception returns a generic 500 instead of crashing the process (belt-and-braces for FR-006)
 - [X] T054 [P] Add `Storage:LocalPath` and `Documents:MaxSizeBytes` configuration entries to `src/Scriptorium.API/appsettings.json` (backing T026, T039)
-- [ ] T055 Run the `quickstart.md` validation scenarios end-to-end against the running app and record results
-- [ ] T056 [P] Review all new classes against Constitution VI (methods under 30 lines, single responsibility) and refactor any that exceed it
+- [X] T055 Run the `quickstart.md` validation scenarios end-to-end against the running app and record results
+- [X] T056 [P] Review all new classes against Constitution VI (methods under 30 lines, single responsibility) and refactor any that exceed it
 
 ---
 

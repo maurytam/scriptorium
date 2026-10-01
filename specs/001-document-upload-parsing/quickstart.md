@@ -4,18 +4,29 @@
 
 - .NET 10 SDK installed
 - Repository built: `dotnet restore && dotnet build`
-- API running locally: `dotnet run --project src/Scriptorium.API`
-- A local SQLite database file created via EF Core migrations (see `CLAUDE.md` for the
-  migration commands) before first run
+- API running locally: `dotnet run --project src/Scriptorium.API` (listens on
+  `http://localhost:5034`). The SQLite database is created and migrated automatically at
+  startup; no manual migration step is needed.
 
-Sample files needed: one valid `.pdf`, `.docx`, `.xlsx`, and `.txt` under 50 MB; one file
-with an unsupported extension (e.g. `.png`); one corrupted `.docx` (e.g. a renamed `.txt`
-file); one file over 50 MB.
+To keep your own documents untouched, run the API against a throwaway database and folder:
+
+```bash
+ConnectionStrings__Default="Data Source=/tmp/quickstart/t.db" \
+Storage__LocalPath=/tmp/quickstart/docs \
+dotnet run --project src/Scriptorium.API
+```
+
+Sample files needed (each with **different content**, because identical content is rejected,
+see Scenario 6): one valid `.pdf`, `.docx`, `.xlsx`, and `.txt` under 50 MB; one file with an
+unsupported extension (e.g. `.png`); one corrupted `.docx` (e.g. a renamed `.txt` file); one
+file over 50 MB.
+
+Results of the last run are recorded in [validation-results.md](./validation-results.md).
 
 ## Scenario 1 — Successful upload (User Story 1)
 
 ```bash
-curl -F "file=@sample.pdf" -F "isPrivate=false" http://localhost:5000/api/documents
+curl -F "file=@sample.pdf" -F "isPrivate=false" http://localhost:5034/api/documents
 ```
 
 **Expected**: `202 Accepted` with `status: "processing"` and an `id`. Poll
@@ -26,8 +37,8 @@ until `status` becomes `"ready"` (within ~30 seconds per SC-006). Then
 ## Scenario 2 — Unsupported type and corrupted file (User Story 2)
 
 ```bash
-curl -F "file=@sample.png" http://localhost:5000/api/documents      # expect 400
-curl -F "file=@corrupted.docx" http://localhost:5000/api/documents  # expect 202, then...
+curl -F "file=@sample.png" http://localhost:5034/api/documents      # expect 400
+curl -F "file=@corrupted.docx" http://localhost:5034/api/documents  # expect 202, then...
 ```
 
 **Expected**: the `.png` upload is rejected immediately with `400` naming supported formats.
@@ -38,29 +49,65 @@ requests (no crash) — verifies FR-006/SC-003.
 ## Scenario 3 — Oversized file
 
 ```bash
-curl -F "file=@too-big.pdf" http://localhost:5000/api/documents  # expect 413
+curl -F "file=@too-big.pdf" http://localhost:5034/api/documents  # expect 413
 ```
 
-**Expected**: rejected immediately with `413`, no `Document` row created — verifies
-FR-002/SC-002.
+**Expected**: rejected immediately with `413`, no `Document` row created and no file stored —
+verifies FR-002/SC-002. A file slightly over the limit gets the JSON message
+(`File exceeds the maximum size of 50 MB.`); a much larger one is refused by the web server
+itself with an empty `413`.
 
 ## Scenario 4 — Private flag (User Story 3)
 
 ```bash
-curl -F "file=@sensitive.txt" -F "isPrivate=true" http://localhost:5000/api/documents
+curl -F "file=@sensitive.txt" -F "isPrivate=true" http://localhost:5034/api/documents
+curl -F "file=@public.txt" http://localhost:5034/api/documents
 ```
 
-**Expected**: `GET /api/documents/{id}` shows `isPrivate: true`. Uploading the same file
-without `isPrivate` shows `isPrivate: false` by default — verifies FR-007/SC-005.
+**Expected**: `GET /api/documents/{id}` shows `isPrivate: true` for the first upload and
+`isPrivate: false` (the default) for the second, which has different content — verifies
+FR-007/SC-005.
 
 ## Scenario 5 — Document list (User Story 4)
 
 ```bash
-curl http://localhost:5000/api/documents
+curl http://localhost:5034/api/documents
 ```
 
-**Expected**: every document uploaded in Scenarios 1–4 appears, each with filename, type,
-upload date, and current status — verifies FR-009/SC-004.
+**Expected**: every document uploaded in Scenarios 1–4 appears, most recent first, each with
+filename, type, upload date, `isPrivate` and current status — verifies FR-009/SC-004.
+
+## Scenario 6 — Duplicate content (FR-012)
+
+```bash
+curl -F "file=@sample.pdf" http://localhost:5034/api/documents          # same file again: expect 409
+cp sample.pdf renamed-copy.pdf
+curl -F "file=@renamed-copy.pdf" http://localhost:5034/api/documents    # renamed copy: expect 409
+```
+
+**Expected**: both are rejected with `409` and `This file has already been uploaded as
+'sample.pdf'.`; nothing new is stored. A different file that merely reuses a name is accepted.
+
+## Scenario 7 — Deleting a document (FR-013)
+
+```bash
+curl -X DELETE http://localhost:5034/api/documents/{id}                 # expect 204
+curl http://localhost:5034/api/documents/{id}                            # expect 404
+curl -X DELETE http://localhost:5034/api/documents/{unknown-id}          # expect 404
+```
+
+**Expected**: the document, its extracted text and its stored file are gone; the same
+content can be uploaded again. Deleting a document that is still `processing` answers `409`
+(hard to hit by hand; covered by the unit tests).
+
+## Scenario 8 — Upload limits
+
+```bash
+curl http://localhost:5034/api/documents/limits
+```
+
+**Expected**: `200` with `{"maxSizeBytes":52428800}` (or the value configured in
+`Documents:MaxSizeBytes`).
 
 ## Notes
 
@@ -68,6 +115,9 @@ upload date, and current status — verifies FR-009/SC-004.
   (`Scriptorium.Infrastructure.Tests`) exercising the same endpoints via
   `WebApplicationFactory`; see `tasks.md` (generated by `/speckit-tasks`) for the concrete
   test tasks.
+- An unhandled server error answers `500` with `{"error":"An unexpected error occurred."}`
+  and never exposes details; it cannot be provoked by hand, so it is covered by the
+  integration tests.
 - Full endpoint/request/response shapes are defined in
   [contracts/documents-api.md](./contracts/documents-api.md); entity shapes in
   [data-model.md](./data-model.md).

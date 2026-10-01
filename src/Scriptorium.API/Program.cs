@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Scriptorium.API.Endpoints;
+using Scriptorium.API.ErrorHandling;
 using Scriptorium.Core.Interfaces;
 using Scriptorium.Core.Services;
 using Scriptorium.Infrastructure.Parsing;
@@ -19,6 +20,8 @@ var documentsPath = Path.GetFullPath(
     builder.Configuration["Storage:LocalPath"] ?? "App_Data/documents", contentRoot);
 var maxSizeBytes = builder.Configuration.GetValue("Documents:MaxSizeBytes", DefaultMaxSizeBytes);
 
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails(); // required by UseExceptionHandler(); our handler always answers first
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContextFactory<ScriptoriumDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddSingleton<IDocumentRepository, DocumentRepository>();
@@ -52,6 +55,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await db.Database.MigrateAsync();
 }
 
+app.UseExceptionHandler();
 app.MapDocumentEndpoints(maxSizeBytes);
 
 app.Run();
