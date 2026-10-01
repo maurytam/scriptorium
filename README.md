@@ -12,6 +12,7 @@ something you can question, summarize and mine for entities.
 ![SQLite](https://img.shields.io/badge/SQLite-EF%20Core-003B57?logo=sqlite&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-7a1f2b)
 ![Status: work in progress](https://img.shields.io/badge/status-work%20in%20progress-c9a24d)
+[![Built with Spec Kit](https://img.shields.io/badge/built%20with-Spec%20Kit-5b5bd6)](https://github.com/github/spec-kit)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/screenshot-dark.png">
@@ -121,10 +122,24 @@ npx ng test --watch=false --browsers=ChromeHeadless   # Angular specs (needs Chr
 
 The integration tests start the API in-process against a throwaway database and folder.
 
-## 🤝 Development
+## 🧭 Built with Spec Kit
 
-Work is spec-driven: each feature starts from the documents in [`specs/`](specs/), is built on a
-feature branch and merged through a pull request. Conventions are in [`Claude.md`](Claude.md).
+Scriptorium is developed following **Spec-Driven Development**, using
+[GitHub Spec Kit](https://github.com/github/spec-kit). The specification is the starting point,
+and the code follows from it: every feature goes through the same steps.
+
+1. **Constitution:** the project principles, in [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
+2. **Specify:** user stories, requirements and success criteria describe *what* and *why*.
+3. **Plan:** the technical approach, research notes, data model and API contracts.
+4. **Tasks:** an ordered, testable task list, grouped by user story.
+5. **Implement:** the tasks are carried out one phase at a time, each reviewed before the next.
+
+Everything for the first feature, document upload and parsing, lives in
+[`specs/001-document-upload-parsing/`](specs/001-document-upload-parsing/): the specification,
+plan, research, data model, API contracts, quickstart, task list and validation results.
+
+Each feature is built on its own branch and merged through a pull request. Project conventions
+are in [`Claude.md`](Claude.md).
 
 ## 📜 License
 
