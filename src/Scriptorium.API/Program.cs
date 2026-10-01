@@ -3,8 +3,10 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Scriptorium.API.Endpoints;
 using Scriptorium.API.ErrorHandling;
+using Scriptorium.Core.Ai;
 using Scriptorium.Core.Interfaces;
 using Scriptorium.Core.Services;
+using Scriptorium.Infrastructure.Ai;
 using Scriptorium.Infrastructure.Parsing;
 using Scriptorium.Infrastructure.Persistence;
 using Scriptorium.Infrastructure.Processing;
@@ -19,6 +21,8 @@ var connectionString = ResolveConnectionString(builder.Configuration, contentRoo
 var documentsPath = Path.GetFullPath(
     builder.Configuration["Storage:LocalPath"] ?? "App_Data/documents", contentRoot);
 var maxSizeBytes = builder.Configuration.GetValue("Documents:MaxSizeBytes", DefaultMaxSizeBytes);
+var ollamaOptions = builder.Configuration.GetSection("Ollama").Get<OllamaOptions>() ?? new OllamaOptions();
+var qaOptions = builder.Configuration.GetSection("Qa").Get<QaOptions>() ?? new QaOptions();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails(); // required by UseExceptionHandler(); our handler always answers first
@@ -31,6 +35,10 @@ builder.Services.AddSingleton<IDocumentParser, PdfDocumentParser>();
 builder.Services.AddSingleton<IDocumentParser, WordDocumentParser>();
 builder.Services.AddSingleton<IDocumentParser, ExcelDocumentParser>();
 builder.Services.AddSingleton<IDocumentParser, TextDocumentParser>();
+
+builder.Services.AddSingleton(ollamaOptions);
+builder.Services.AddSingleton(qaOptions);
+builder.Services.AddSingleton<IAIProvider>(_ => OllamaProvider.Create(ollamaOptions));
 
 builder.Services.AddSingleton<DocumentProcessingQueue>();
 builder.Services.AddSingleton<IDocumentProcessingQueue>(sp => sp.GetRequiredService<DocumentProcessingQueue>());
