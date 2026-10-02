@@ -9,7 +9,7 @@ speed and answer quality cannot be tested without it.
 
 - Everything from the [feature 001 quickstart](../001-document-upload-parsing/quickstart.md).
 - Ollama running on the same machine (`ollama serve`, or the desktop app) and the model installed:
-  `ollama pull qwen3.5:9b`. Check with `curl http://localhost:11434/api/tags`.
+  `ollama pull qwen3.5:4b`. Check with `curl http://localhost:11434/api/tags`.
 - API running against a throwaway database and folder (so your own documents stay untouched):
 
 ```bash
@@ -17,7 +17,7 @@ ConnectionStrings__Default="Data Source=/tmp/qa/t.db" Storage__LocalPath=/tmp/qa
 dotnet run --project src/Scriptorium.API
 ```
 
-Sample files: a short `.txt` of **under 4,000 characters** with a few clear facts (names, dates, amounts), so it is not truncated; a long `.txt` of at least
+Sample files: a short `.txt` of **under 8,000 characters** with a few clear facts (names, dates, amounts), so it is not truncated; a long `.txt` of at least
 60,000 characters whose last paragraph contains a distinctive fact; a `.txt` marked private.
 
 ## Scenario 1 — Ask and answer (User Story 1)

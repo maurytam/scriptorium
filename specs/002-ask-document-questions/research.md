@@ -78,7 +78,7 @@ validation (quickstart scenario 8).
 
 **Decision**: Pass the window size explicitly on every request (`Ollama:NumCtx`, default **8192**
 tokens) and enforce a character budget before calling the model (`Qa:MaxDocumentCharacters`, default
-**4,000**, lowered from the 18,000 first planned after the measurements of R13). The budget is a deliberate
+**8,000**; first planned as 18,000, lowered to 4,000 after the measurements of R13 on the 9b model, then raised to 8,000 once the faster 4b model was adopted). The budget is a deliberate
 under-estimate (about 3 characters per token in the worst case; about 4.7 were measured on English text) so that
 document, history, question and answer fit together in the window. Beyond the
 budget the document is cut at the end and the response carries `truncated: true`, which the UI turns
@@ -179,11 +179,11 @@ cannot be.
 | Key | Default | Meaning |
 |---|---|---|
 | `Ollama:BaseUrl` | `http://localhost:11434` | Where Ollama listens |
-| `Ollama:Model` | `qwen3.5:9b` | Model used for answers |
+| `Ollama:Model` | `qwen3.5:4b` | Model used for answers (the 9b is more capable but about four times slower on a CPU-only machine) |
 | `Ollama:NumCtx` | `8192` | Working window requested from Ollama, in tokens |
 | `Ollama:TimeoutSeconds` | `120` | Longest wait for an answer |
 | `Qa:MaxQuestionLength` | `2000` | Longest accepted question, in characters |
-| `Qa:MaxDocumentCharacters` | `4000` | Document text sent to the model (about one page; raise it on a machine with a GPU) |
+| `Qa:MaxDocumentCharacters` | `8000` | Document text sent to the model (about two pages; raise it on a machine with a GPU) |
 | `Qa:MaxHistoryExchanges` | `10` | Earlier exchanges sent as context |
 | `Qa:MaxHistoryCharacters` | `3000` | Cap on the history text sent as context |
 
@@ -224,3 +224,12 @@ producing 752 characters of hidden reasoning; the answer was identical.
   characters exceeded 100 s and would not fit the 120 s timeout.
 - Decision (user, 2026-10-01): defaults of **4,000 characters** of document and a **120 s** timeout; the history cap is lowered to
   **3,000 characters** for the same reason (every follow-up pays for the whole prompt). A machine with a GPU can raise all three.
+
+**A smaller model (measured by the user, 2026-10-02)**: with `qwen3.5:4b` (3.4 GB) on the same machine, a question about a
+600 KB PDF book answered correctly in about **15 s** once the model was loaded, against 55 to 60 s with the 9b model, so roughly
+four times faster. The first question after loading took about 30 s. A question whose answer is not in the book was answered, in
+Italian, with "the book does not contain this information", so the grounding rule and the language rule held. `Think = false` was
+accepted by this model too. This is a small sample (two questions, one book), but it is enough to change the defaults:
+- `Ollama:Model` becomes **`qwen3.5:4b`** (the 9b stays a configuration choice, for example `Ollama__Model=qwen3.5:9b`);
+- `Qa:MaxDocumentCharacters` becomes **8,000**, which at this speed should stay near 30 s per answer, within SC-001;
+- `Qa:MaxHistoryCharacters` stays 3,000 and `Ollama:TimeoutSeconds` stays 120.

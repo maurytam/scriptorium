@@ -12,7 +12,7 @@ Tech Stack
 Runtime: .NET 10 / C# 14
 Frontend: Angular
 Backend: ASP.NET Core 10 minimal API
-AI - Local: OllamaSharp → http://localhost:11434 (model: qwen3.5:9b)
+AI - Local: OllamaSharp → http://localhost:11434 (model: qwen3.5:4b)
 AI - Cloud: Anthropic .NET SDK (claude-sonnet-4-20250514)
 ORM: Entity Framework Core 10
 Patterns: Clean Architecture, Repository pattern
@@ -94,7 +94,7 @@ Do not commit automatically without asking first
 Environment & Secrets (local dev)
 bashdotnet user-secrets set "Anthropic:ApiKey" "<your-key>" --project src/Scriptorium.API
 dotnet user-secrets set "Ollama:BaseUrl" "http://localhost:11434" --project src/Scriptorium.API
-dotnet user-secrets set "Ollama:Model" "qwen3.5:9b" --project src/Scriptorium.API
+dotnet user-secrets set "Ollama:Model" "qwen3.5:4b" --project src/Scriptorium.API
 
 
 Preferred Working Style
