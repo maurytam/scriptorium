@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 
 import { DocumentApiService } from './document-api.service';
-import { DocumentDetails, DocumentSummary, UploadEvent } from './document.models';
+import { AskResponse, DocumentDetails, DocumentSummary, UploadEvent } from './document.models';
 
 const details = (status: DocumentDetails['status']): DocumentDetails => ({
   id: 'abc',
@@ -121,6 +121,29 @@ describe('DocumentApiService', () => {
     expect(request.request.method).toBe('DELETE');
     request.flush(null, { status: 204, statusText: 'No Content' });
     expect(completed).toBeTrue();
+  });
+
+  it('asks a question about a document', () => {
+    let received: AskResponse | undefined;
+
+    service.ask('abc', 'Who signed?').subscribe((response) => (received = response));
+
+    const request = http.expectOne('/api/documents/abc/ask');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ question: 'Who signed?' });
+    request.flush({ answer: 'Maria Rossi.', truncated: false });
+    expect(received).toEqual({ answer: 'Maria Rossi.', truncated: false });
+  });
+
+  it('propagates the server message when a question is refused', () => {
+    let error: { status: number; error: { error: string } } | undefined;
+
+    service.ask('abc', ' ').subscribe({ error: (e) => (error = e) });
+
+    http.expectOne('/api/documents/abc/ask').flush({ error: 'The question is empty.' }, { status: 400, statusText: 'Bad Request' });
+
+    expect(error?.status).toBe(400);
+    expect(error?.error.error).toBe('The question is empty.');
   });
 
   it('reads the upload limits from the server', () => {

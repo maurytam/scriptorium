@@ -4,6 +4,7 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, catchError, expand, merge, of, switchMap, timer } from 'rxjs';
 
+import { ConversationSelectionService } from '../ask/conversation-selection.service';
 import { DocumentApiService } from '../document-api.service';
 import { DocumentSummary } from '../document.models';
 
@@ -17,6 +18,7 @@ const POLL_INTERVAL_MS = 2000;
 export class DocumentListComponent {
   private readonly api = inject(DocumentApiService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly selection = inject(ConversationSelectionService);
 
   readonly documents = signal<DocumentSummary[]>([]);
   readonly loaded = signal(false);
@@ -35,6 +37,10 @@ export class DocumentListComponent {
         this.loaded.set(true);
         this.errorMessage.set(null);
       });
+  }
+
+  ask(document: DocumentSummary): void {
+    this.selection.open(document);
   }
 
   askDelete(id: string): void {

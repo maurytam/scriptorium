@@ -5,7 +5,7 @@ public sealed record QaOptions
 {
     public int MaxQuestionLength { get; init; } = 2000;
 
-    public int MaxDocumentCharacters { get; init; } = 4000;
+    public int MaxDocumentCharacters { get; init; } = 8000;
 
     public int MaxHistoryExchanges { get; init; } = 10;
 

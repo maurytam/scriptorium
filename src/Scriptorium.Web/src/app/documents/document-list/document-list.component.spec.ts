@@ -3,6 +3,7 @@ import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
+import { ConversationSelectionService } from '../ask/conversation-selection.service';
 import { DocumentSummary } from '../document.models';
 import { DocumentListComponent } from './document-list.component';
 
@@ -203,6 +204,41 @@ describe('DocumentListComponent', () => {
       fixture.detectChanges();
 
       expect(text(fixture)).toContain('could not be deleted');
+    });
+  });
+
+  describe('asking about a document', () => {
+    const askButtons = (fixture: ReturnType<typeof create>) =>
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.ask-button');
+
+    it('offers Ask only on documents that are ready', () => {
+      api.list.and.returnValue(of([doc('done', 'ready'), doc('busy', 'processing'), doc('broken', 'failed')]));
+
+      const fixture = create();
+
+      const buttons = askButtons(fixture);
+      expect(buttons.length).toBe(1);
+      expect(buttons[0].getAttribute('aria-label')).toBe('Ask about done.pdf');
+    });
+
+    it('opens the conversation for the chosen document', () => {
+      api.list.and.returnValue(of([doc('first', 'ready'), doc('second', 'ready')]));
+      const selection = TestBed.inject(ConversationSelectionService);
+      const fixture = create();
+
+      askButtons(fixture)[1].click();
+
+      expect(selection.document()?.id).toBe('second');
+    });
+
+    it('hides Ask while the row asks for confirmation to delete', () => {
+      api.list.and.returnValue(of([doc('done', 'ready')]));
+      const fixture = create();
+
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.icon-button')?.click();
+      fixture.detectChanges();
+
+      expect(askButtons(fixture).length).toBe(0);
     });
   });
 });
