@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, Subject, filter, map, switchMap, take, timer } from 'rxjs';
 
 import {
+  AskResponse,
   DocumentDetails,
   DocumentSummary,
   UploadEvent,
@@ -43,6 +44,10 @@ export class DocumentApiService {
 
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${DOCUMENTS_URL}/${id}`);
+  }
+
+  ask(id: string, question: string): Observable<AskResponse> {
+    return this.http.post<AskResponse>(`${DOCUMENTS_URL}/${id}/ask`, { question });
   }
 
   getLimits(): Observable<UploadLimits> {

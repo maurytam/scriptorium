@@ -1,0 +1,51 @@
+@if (document(); as doc) {
+  <section class="card ask" aria-label="Ask about a document">
+    <header class="ask-header">
+      <h2>Ask about <span class="ask-document">{{ doc.fileName }}</span></h2>
+      <button type="button" class="secondary" (click)="close()">Close</button>
+    </header>
+
+    @if (transcript().length === 0 && !waiting()) {
+      <p class="ask-hint">
+        Ask anything about this document. Answers come only from its text and are produced on your computer.
+      </p>
+    }
+
+    @if (transcript().length > 0) {
+      <ol class="transcript">
+        @for (exchange of transcript(); track $index) {
+          <li class="exchange">
+            <p class="question">{{ exchange.question }}</p>
+            <p class="answer">{{ exchange.answer }}</p>
+          </li>
+        }
+      </ol>
+    }
+
+    @if (waiting()) {
+      <p class="status" role="status">
+        <label>
+          Working on it… a local model can take a while.
+          <progress></progress>
+        </label>
+      </p>
+    }
+
+    @if (errorMessage(); as message) {
+      <p class="status failed" role="alert">{{ message }}</p>
+    }
+
+    <form class="ask-form" (submit)="$event.preventDefault(); send()">
+      <textarea
+        rows="2"
+        placeholder="Type your question…"
+        aria-label="Your question"
+        [value]="question()"
+        [disabled]="waiting()"
+        (input)="onInput($event)"
+        (keydown.enter)="onEnter($event)"
+      ></textarea>
+      <button type="submit" [disabled]="!canSend()">Send</button>
+    </form>
+  </section>
+}

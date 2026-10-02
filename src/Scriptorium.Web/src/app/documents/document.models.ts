@@ -38,3 +38,8 @@ export interface DocumentSummary {
   isPrivate: boolean;
   status: DocumentStatus;
 }
+
+export interface AskResponse {
+  answer: string;
+  truncated: boolean;
+}

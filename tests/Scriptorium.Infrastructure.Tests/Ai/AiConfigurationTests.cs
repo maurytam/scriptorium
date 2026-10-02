@@ -27,8 +27,8 @@ public sealed class AiConfigurationTests : IDisposable
         var ollama = _host.Factory.Services.GetRequiredService<OllamaOptions>();
         var qa = _host.Factory.Services.GetRequiredService<QaOptions>();
 
-        ollama.Should().Be(new OllamaOptions { BaseUrl = "http://localhost:11434", Model = "qwen3.5:9b", NumCtx = 8192, TimeoutSeconds = 120 });
-        qa.Should().Be(new QaOptions { MaxQuestionLength = 2000, MaxDocumentCharacters = 4000, MaxHistoryExchanges = 10, MaxHistoryCharacters = 3000 });
+        ollama.Should().Be(new OllamaOptions { BaseUrl = "http://localhost:11434", Model = "qwen3.5:4b", NumCtx = 8192, TimeoutSeconds = 120 });
+        qa.Should().Be(new QaOptions { MaxQuestionLength = 2000, MaxDocumentCharacters = 8000, MaxHistoryExchanges = 10, MaxHistoryCharacters = 3000 });
     }
 
     [Fact]
