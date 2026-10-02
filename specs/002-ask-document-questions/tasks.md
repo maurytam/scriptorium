@@ -30,9 +30,9 @@ Web application layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.
 
 **Purpose**: The one new dependency, the configuration and a check of the library's real API
 
-- [ ] T001 Add the `OllamaSharp` 5.5.0 package reference to `src/Scriptorium.Infrastructure/Scriptorium.Infrastructure.csproj` (approved by the user on 2026-10-01; no other project may reference it, Constitution I and VII)
-- [ ] T002 [P] Add the `Ollama` (`BaseUrl`, `Model`, `NumCtx`, `TimeoutSeconds`) and `Qa` (`MaxQuestionLength`, `MaxDocumentCharacters`, `MaxHistoryExchanges`, `MaxHistoryCharacters`) sections with the defaults of research R12 to `src/Scriptorium.API/appsettings.json`
-- [ ] T003 Spike (depends on T001): confirm in OllamaSharp 5.5.0 the exact API for a chat request with role-tagged messages, the window-size and temperature options, switching thinking off, the `IOllamaApiClient` interface to mock, and the exceptions raised for an unreachable server and for a missing model; record the findings under R6 in `specs/002-ask-document-questions/research.md`
+- [X] T001 Add the `OllamaSharp` 5.5.0 package reference to `src/Scriptorium.Infrastructure/Scriptorium.Infrastructure.csproj` (approved by the user on 2026-10-01; no other project may reference it, Constitution I and VII)
+- [X] T002 [P] Add the `Ollama` (`BaseUrl`, `Model`, `NumCtx`, `TimeoutSeconds`) and `Qa` (`MaxQuestionLength`, `MaxDocumentCharacters`, `MaxHistoryExchanges`, `MaxHistoryCharacters`) sections with the defaults of research R12 to `src/Scriptorium.API/appsettings.json`
+- [X] T003 Spike (depends on T001): confirm in OllamaSharp 5.5.0 the exact API for a chat request with role-tagged messages, the window-size and temperature options, switching thinking off, the `IOllamaApiClient` interface to mock, and the exceptions raised for an unreachable server and for a missing model; record the findings under R6 in `specs/002-ask-document-questions/research.md`
 
 ---
 
@@ -42,16 +42,16 @@ Web application layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 [P] Create the enums `AiRole` (`System`, `User`, `Assistant`), `AiFailureKind` (`Unavailable`, `Timeout`, `Failed`) and `AskFailureKind` (`InvalidQuestion`, `NotFound`, `NotReady`, `ModelUnavailable`, `Timeout`, `Internal`) in `src/Scriptorium.Core/Enums/AiRole.cs`, `AiFailureKind.cs` and `AskFailureKind.cs`
-- [ ] T005 [P] Create the records `AiMessage` (role, content) and `AiRequest` (ordered messages) in `src/Scriptorium.Core/Ai/AiMessage.cs` and `src/Scriptorium.Core/Ai/AiRequest.cs`
-- [ ] T006 [P] Create the records `ChatExchange` (question, answer) and `QaOptions` (`MaxQuestionLength`, `MaxDocumentCharacters`, `MaxHistoryExchanges`, `MaxHistoryCharacters`) in `src/Scriptorium.Core/Ai/ChatExchange.cs` and `src/Scriptorium.Core/Ai/QaOptions.cs`
-- [ ] T007 [P] Create `AiResult` (success with the answer text, or failure with `AiFailureKind` and a message, same shape as `UploadResult`) in `src/Scriptorium.Core/Results/AiResult.cs` (depends on T004)
-- [ ] T008 [P] Unit tests for `AiResult` in `tests/Scriptorium.Core.Tests/Results/AiResultTests.cs`
-- [ ] T009 Define `IAIProvider` (`Task<AiResult> CompleteAsync(AiRequest request, CancellationToken ct)`) in `src/Scriptorium.Core/Interfaces/IAIProvider.cs` per `contracts/ai-provider.md` (depends on T005, T007)
-- [ ] T010 [P] Create the `OllamaOptions` record (`BaseUrl`, `Model`, `NumCtx`, `TimeoutSeconds`) in `src/Scriptorium.Infrastructure/Ai/OllamaOptions.cs`
-- [ ] T011 Implement `OllamaProvider` in `src/Scriptorium.Infrastructure/Ai/OllamaProvider.cs`: map the request messages to a chat request with model, window size, low temperature (0.2) and thinking disabled; assemble the streamed chunks into one answer text; return `Unavailable` when the server cannot be reached or the model is missing, `Timeout` after `OllamaOptions.TimeoutSeconds`, `Failed` for any other error or an empty answer; let caller cancellation propagate; never log the question or the document text (depends on T003, T005, T007, T009, T010)
-- [ ] T012 [P] Unit tests for `OllamaProvider` against a mocked `IOllamaApiClient` in `tests/Scriptorium.Infrastructure.Tests/Ai/OllamaProviderTests.cs`: request options and roles sent, chunks assembled, empty answer, unreachable server, missing model, timeout, cancellation
-- [ ] T013 Register in `src/Scriptorium.API/Program.cs` the binding of `OllamaOptions` and `QaOptions` from configuration, `IAIProvider` built with `OllamaProvider.Create(OllamaOptions)`, so the API never touches OllamaSharp types (the provider creates its own `HttpClient` with an infinite timeout, see research R13) (depends on T002, T011)
+- [X] T004 [P] Create the enums `AiRole` (`System`, `User`, `Assistant`), `AiFailureKind` (`Unavailable`, `Timeout`, `Failed`) and `AskFailureKind` (`InvalidQuestion`, `NotFound`, `NotReady`, `ModelUnavailable`, `Timeout`, `Internal`) in `src/Scriptorium.Core/Enums/AiRole.cs`, `AiFailureKind.cs` and `AskFailureKind.cs`
+- [X] T005 [P] Create the records `AiMessage` (role, content) and `AiRequest` (ordered messages) in `src/Scriptorium.Core/Ai/AiMessage.cs` and `src/Scriptorium.Core/Ai/AiRequest.cs`
+- [X] T006 [P] Create the records `ChatExchange` (question, answer) and `QaOptions` (`MaxQuestionLength`, `MaxDocumentCharacters`, `MaxHistoryExchanges`, `MaxHistoryCharacters`) in `src/Scriptorium.Core/Ai/ChatExchange.cs` and `src/Scriptorium.Core/Ai/QaOptions.cs`
+- [X] T007 [P] Create `AiResult` (success with the answer text, or failure with `AiFailureKind` and a message, same shape as `UploadResult`) in `src/Scriptorium.Core/Results/AiResult.cs` (depends on T004)
+- [X] T008 [P] Unit tests for `AiResult` in `tests/Scriptorium.Core.Tests/Results/AiResultTests.cs`
+- [X] T009 Define `IAIProvider` (`Task<AiResult> CompleteAsync(AiRequest request, CancellationToken ct)`) in `src/Scriptorium.Core/Interfaces/IAIProvider.cs` per `contracts/ai-provider.md` (depends on T005, T007)
+- [X] T010 [P] Create the `OllamaOptions` record (`BaseUrl`, `Model`, `NumCtx`, `TimeoutSeconds`) in `src/Scriptorium.Infrastructure/Ai/OllamaOptions.cs`
+- [X] T011 Implement `OllamaProvider` in `src/Scriptorium.Infrastructure/Ai/OllamaProvider.cs`: map the request messages to a chat request with model, window size, low temperature (0.2) and thinking disabled; assemble the streamed chunks into one answer text; return `Unavailable` when the server cannot be reached or the model is missing, `Timeout` after `OllamaOptions.TimeoutSeconds`, `Failed` for any other error or an empty answer; let caller cancellation propagate; never log the question or the document text (depends on T003, T005, T007, T009, T010)
+- [X] T012 [P] Unit tests for `OllamaProvider` against a mocked `IOllamaApiClient` in `tests/Scriptorium.Infrastructure.Tests/Ai/OllamaProviderTests.cs`: request options and roles sent, chunks assembled, empty answer, unreachable server, missing model, timeout, cancellation
+- [X] T013 Register in `src/Scriptorium.API/Program.cs` the binding of `OllamaOptions` and `QaOptions` from configuration, `IAIProvider` built with `OllamaProvider.Create(OllamaOptions)`, so the API never touches OllamaSharp types (the provider creates its own `HttpClient` with an infinite timeout, see research R13) (depends on T002, T011)
 
 **Checkpoint**: The domain can ask a model for an answer through `IAIProvider`; nothing else knows Ollama exists
 
