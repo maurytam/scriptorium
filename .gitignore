@@ -65,3 +65,4 @@ App_Data/
 
 # Stray folders literally named "bin\Debug" / "bin\Release" (backslash in the name), created by the C# language server
 bin\\*
+.tokensave
