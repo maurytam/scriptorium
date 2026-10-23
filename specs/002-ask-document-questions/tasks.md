@@ -122,9 +122,9 @@ Web application layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T044 [P] Update `README.md`: describe the feature, add Ollama and the model as a prerequisite for asking questions (`ollama pull qwen3.5:9b`), the `Ollama` and `Qa` configuration keys, the new endpoint in the API table, and mark the roadmap item as done
+- [X] T044 [P] Update `README.md`: describe the feature, add Ollama and the model as a prerequisite for asking questions (`ollama pull qwen3.5:9b`), the `Ollama` and `Qa` configuration keys, the new endpoint in the API table, and mark the roadmap item as done
 - [ ] T045 Run the `quickstart.md` scenarios 1 to 9 against the real Ollama and the real model and record the results in `specs/002-ask-document-questions/validation-results.md` (needs Ollama running on the machine)
-- [ ] T046 [P] Review all new classes against Constitution VI (methods under 30 lines, single responsibility) and against the contract rule that the question and the document text are never logged; record the outcome in `specs/002-ask-document-questions/validation-results.md` and refactor anything that exceeds it
+- [X] T046 [P] Review all new classes against Constitution VI (methods under 30 lines, single responsibility) and against the contract rule that the question and the document text are never logged; record the outcome in `specs/002-ask-document-questions/validation-results.md` and refactor anything that exceeds it
 
 ---
 
