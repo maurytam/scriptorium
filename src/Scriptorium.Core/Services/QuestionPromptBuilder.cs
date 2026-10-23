@@ -24,16 +24,44 @@ public sealed class QuestionPromptBuilder
         _options = options;
     }
 
-    public QuestionPrompt Build(string documentText, string question)
+    public QuestionPrompt Build(string documentText, string question, IReadOnlyList<ChatExchange>? history = null)
     {
         var (text, truncated) = FitToBudget(documentText);
         var messages = new List<AiMessage>
         {
-            new(AiRole.System, $"{Instructions}\n\n<document>\n{Neutralize(text)}\n{ClosingTag}"),
-            new(AiRole.User, question)
+            new(AiRole.System, $"{Instructions}\n\n<document>\n{Neutralize(text)}\n{ClosingTag}")
         };
 
+        foreach (var exchange in RetainRecent(history))
+        {
+            messages.Add(new AiMessage(AiRole.User, exchange.Question));
+            messages.Add(new AiMessage(AiRole.Assistant, exchange.Answer));
+        }
+
+        messages.Add(new AiMessage(AiRole.User, question));
         return new QuestionPrompt(new AiRequest(messages), truncated);
+    }
+
+    // Newest first: the most recent exchanges matter most, so the oldest are the ones dropped (silently).
+    private List<ChatExchange> RetainRecent(IReadOnlyList<ChatExchange>? history)
+    {
+        var kept = new List<ChatExchange>();
+        var characters = 0;
+
+        for (var i = (history?.Count ?? 0) - 1; i >= 0 && kept.Count < _options.MaxHistoryExchanges; i--)
+        {
+            var exchange = history![i]; // history is not null here: the loop only runs when its count is positive
+            characters += exchange.Question.Length + exchange.Answer.Length;
+            if (characters > _options.MaxHistoryCharacters)
+            {
+                break;
+            }
+
+            kept.Add(exchange);
+        }
+
+        kept.Reverse();
+        return kept;
     }
 
     private (string Text, bool Truncated) FitToBudget(string text)

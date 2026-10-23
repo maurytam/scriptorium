@@ -58,6 +58,7 @@ export class DocumentListComponent {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
+          this.selection.clearIf(document.id); // the conversation about a deleted document goes with it
           this.finishDelete();
           this.api.notifyDocumentsChanged();
         },

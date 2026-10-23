@@ -29,7 +29,7 @@ public class DocumentQuestionServiceTests
         ReadyDocument("Maria Rossi signed the agreement.");
         AnswerWith("Maria Rossi.");
 
-        var result = await _service.AskAsync(_id, "Who signed?", CancellationToken.None);
+        var result = await _service.AskAsync(_id, "Who signed?", null, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Answer.Should().Be("Maria Rossi.");
@@ -45,7 +45,7 @@ public class DocumentQuestionServiceTests
             .Callback<AiRequest, CancellationToken>((request, _) => sent = request)
             .ReturnsAsync(AiResult.Success("ok"));
 
-        await _service.AskAsync(_id, "   Who signed?  ", CancellationToken.None);
+        await _service.AskAsync(_id, "   Who signed?  ", null, CancellationToken.None);
 
         sent!.Messages[0].Content.Should().Contain("Maria Rossi signed the agreement.");
         sent.Messages[^1].Should().Be(new AiMessage(AiRole.User, "Who signed?"));
@@ -58,7 +58,7 @@ public class DocumentQuestionServiceTests
         using var cancellation = new CancellationTokenSource();
         _provider.Setup(p => p.CompleteAsync(It.IsAny<AiRequest>(), cancellation.Token)).ReturnsAsync(AiResult.Success("ok"));
 
-        await _service.AskAsync(_id, "q", cancellation.Token);
+        await _service.AskAsync(_id, "q", null, cancellation.Token);
 
         _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), cancellation.Token), Times.Once);
     }
@@ -69,7 +69,7 @@ public class DocumentQuestionServiceTests
     [InlineData("\n\t")]
     public async Task AskAsync_EmptyQuestion_IsRejectedBeforeAnythingIsLoaded(string question)
     {
-        var result = await _service.AskAsync(_id, question, CancellationToken.None);
+        var result = await _service.AskAsync(_id, question, null, CancellationToken.None);
 
         result.FailureKind.Should().Be(AskFailureKind.InvalidQuestion);
         result.Error.Should().Be("The question is empty.");
@@ -78,7 +78,7 @@ public class DocumentQuestionServiceTests
     [Fact]
     public async Task AskAsync_QuestionOverTheLimit_IsRejectedWithTheLimit()
     {
-        var result = await _service.AskAsync(_id, new string('q', 51), CancellationToken.None);
+        var result = await _service.AskAsync(_id, new string('q', 51), null, CancellationToken.None);
 
         result.FailureKind.Should().Be(AskFailureKind.InvalidQuestion);
         result.Error.Should().Contain("50 characters");
@@ -90,7 +90,7 @@ public class DocumentQuestionServiceTests
         ReadyDocument("text");
         AnswerWith("ok");
 
-        var result = await _service.AskAsync(_id, new string('q', 50), CancellationToken.None);
+        var result = await _service.AskAsync(_id, new string('q', 50), null, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
     }
@@ -100,7 +100,7 @@ public class DocumentQuestionServiceTests
     {
         _repository.Setup(r => r.GetByIdAsync(_id, It.IsAny<CancellationToken>())).ReturnsAsync((Document?)null);
 
-        var result = await _service.AskAsync(_id, "q", CancellationToken.None);
+        var result = await _service.AskAsync(_id, "q", null, CancellationToken.None);
 
         result.FailureKind.Should().Be(AskFailureKind.NotFound);
     }
@@ -113,7 +113,7 @@ public class DocumentQuestionServiceTests
         _repository.Setup(r => r.GetByIdAsync(_id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Document { Id = _id, Status = status });
 
-        var result = await _service.AskAsync(_id, "q", CancellationToken.None);
+        var result = await _service.AskAsync(_id, "q", null, CancellationToken.None);
 
         result.FailureKind.Should().Be(AskFailureKind.NotReady);
         result.Error.Should().Be($"The document is not ready. Current status: {name}.");
@@ -126,7 +126,7 @@ public class DocumentQuestionServiceTests
             .ReturnsAsync(new Document { Id = _id, Status = DocumentStatus.Ready });
         _repository.Setup(r => r.GetExtractedTextAsync(_id, It.IsAny<CancellationToken>())).ReturnsAsync((ExtractedText?)null);
 
-        var result = await _service.AskAsync(_id, "q", CancellationToken.None);
+        var result = await _service.AskAsync(_id, "q", null, CancellationToken.None);
 
         result.FailureKind.Should().Be(AskFailureKind.Internal);
     }
@@ -141,7 +141,7 @@ public class DocumentQuestionServiceTests
         _provider.Setup(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(AiResult.Failure(kind, "provider detail"));
 
-        var result = await _service.AskAsync(_id, "q", CancellationToken.None);
+        var result = await _service.AskAsync(_id, "q", null, CancellationToken.None);
 
         result.FailureKind.Should().Be(AskFailureKind.Internal);
         result.Error.Should().NotContain("provider detail");
@@ -153,9 +153,27 @@ public class DocumentQuestionServiceTests
         ReadyDocument(new string('x', 150));
         AnswerWith("ok");
 
-        var result = await _service.AskAsync(_id, "q", CancellationToken.None);
+        var result = await _service.AskAsync(_id, "q", null, CancellationToken.None);
 
         result.Truncated.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AskAsync_WithHistory_SendsTheEarlierExchangesToTheModelBeforeTheQuestion()
+    {
+        ReadyDocument("Maria Rossi signed the agreement in May.");
+        AiRequest? sent = null;
+        _provider.Setup(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<AiRequest, CancellationToken>((request, _) => sent = request)
+            .ReturnsAsync(AiResult.Success("ok"));
+        var history = new[] { new ChatExchange("Who signed?", "Maria Rossi.") };
+
+        await _service.AskAsync(_id, "When?", history, CancellationToken.None);
+
+        sent!.Messages.Skip(1).Should().Equal(
+            new AiMessage(AiRole.User, "Who signed?"),
+            new AiMessage(AiRole.Assistant, "Maria Rossi."),
+            new AiMessage(AiRole.User, "When?"));
     }
 
     private void ReadyDocument(string text)

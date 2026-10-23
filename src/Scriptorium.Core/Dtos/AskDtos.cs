@@ -4,7 +4,7 @@ namespace Scriptorium.Core.Dtos;
 
 public sealed record ChatExchangeDto(string Question, string Answer);
 
-public sealed record AskRequestDto(string? Question, IReadOnlyList<ChatExchangeDto>? History = null);
+public sealed record AskRequestDto(string? Question, IReadOnlyList<ChatExchangeDto?>? History = null);
 
 public sealed record AskResponseDto(string Answer, bool Truncated)
 {

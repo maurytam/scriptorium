@@ -74,7 +74,7 @@ describe('AskPanelComponent', () => {
     sendButton().click();
     fixture.detectChanges();
 
-    expect(api.ask).toHaveBeenCalledOnceWith('report', 'Who signed?');
+    expect(api.ask).toHaveBeenCalledOnceWith('report', 'Who signed?', []);
     expect(text()).toContain('Who signed?');
     expect(text()).toContain('Maria Rossi.');
     expect(textarea().value).toBe('');
@@ -205,5 +205,108 @@ describe('AskPanelComponent', () => {
 
     expect(text()).not.toContain('Late answer about A.');
     expect(component.waiting()).toBeFalse();
+  });
+
+  it('sends the earlier exchanges of the conversation with every new question', () => {
+    api.ask.and.returnValues(of(answer('First answer.')), of(answer('Second answer.')), of(answer('Third answer.')));
+    open('report');
+
+    type('First?');
+    sendButton().click();
+    type('Second?');
+    sendButton().click();
+    type('Third?');
+    sendButton().click();
+
+    expect(api.ask.calls.argsFor(1)).toEqual([
+      'report',
+      'Second?',
+      [{ question: 'First?', answer: 'First answer.' }],
+    ]);
+    expect(api.ask.calls.argsFor(2)[2]).toEqual([
+      { question: 'First?', answer: 'First answer.' },
+      { question: 'Second?', answer: 'Second answer.' },
+    ]);
+  });
+
+  it('does not add a failed question to the history sent next', () => {
+    api.ask.and.returnValues(throwError(() => new HttpErrorResponse({ status: 503 })), of(answer()));
+    open('report');
+
+    type('Lost?');
+    sendButton().click();
+    sendButton().click(); // retry with the question still in the input
+
+    expect(api.ask.calls.argsFor(1)).toEqual(['report', 'Lost?', []]);
+  });
+
+  describe('New conversation', () => {
+    const newConversationButton = () =>
+      Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'New conversation') as
+        | HTMLButtonElement
+        | undefined;
+
+    it('is offered only once there is something to discard', () => {
+      api.ask.and.returnValue(of(answer()));
+      open();
+      expect(newConversationButton()).toBeUndefined();
+
+      type('Who signed?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      expect(newConversationButton()).toBeDefined();
+    });
+
+    it('empties the transcript, keeps the document open and sends no history afterwards', () => {
+      api.ask.and.returnValue(of(answer('Old answer.')));
+      open('report');
+      type('Old question?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      newConversationButton()!.click();
+      fixture.detectChanges();
+
+      expect(text()).not.toContain('Old answer.');
+      expect(text()).toContain('Ask about report.pdf');
+      expect(newConversationButton()).toBeUndefined();
+
+      type('Fresh?');
+      sendButton().click();
+      expect(api.ask.calls.mostRecent().args).toEqual(['report', 'Fresh?', []]);
+    });
+
+    it('drops an answer that was still on its way', () => {
+      const late = new Subject<AskResponse>();
+      api.ask.and.returnValues(of(answer('First answer.')), late);
+      open();
+      type('First?');
+      sendButton().click();
+      type('Second?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      newConversationButton()!.click();
+      late.next(answer('Late answer.'));
+      fixture.detectChanges();
+
+      expect(text()).not.toContain('Late answer.');
+      expect(component.waiting()).toBeFalse();
+    });
+  });
+
+  it('discards the transcript when the card is closed and opened again', () => {
+    api.ask.and.returnValue(of(answer('Answer about A.')));
+    open('a');
+    type('Question?');
+    sendButton().click();
+    fixture.detectChanges();
+
+    selection.close();
+    settle();
+    open('a');
+
+    expect(text()).not.toContain('Answer about A.');
   });
 });

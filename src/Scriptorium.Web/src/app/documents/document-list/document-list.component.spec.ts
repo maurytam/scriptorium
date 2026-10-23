@@ -176,6 +176,35 @@ describe('DocumentListComponent', () => {
       expect(text(fixture)).not.toContain('Delete?');
     });
 
+    it('closes the conversation when its document is deleted', () => {
+      api.list.and.returnValues(of([doc('a', 'ready')]), of([]));
+      api.delete.and.returnValue(of(undefined));
+      const selection = TestBed.inject(ConversationSelectionService);
+      const fixture = create();
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.ask-button')?.click();
+      expect(selection.document()?.id).toBe('a');
+
+      click(fixture, '.icon-button', 0);
+      fixture.detectChanges();
+      click(fixture, '.confirm button.danger');
+
+      expect(selection.document()).toBeNull();
+    });
+
+    it('keeps the conversation open when another document is deleted', () => {
+      api.list.and.returnValues(of([doc('a', 'ready'), doc('b', 'ready')]), of([doc('a', 'ready')]));
+      api.delete.and.returnValue(of(undefined));
+      const selection = TestBed.inject(ConversationSelectionService);
+      const fixture = create();
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.ask-button')?.click();
+
+      click(fixture, '.icon-button', 1);
+      fixture.detectChanges();
+      click(fixture, '.confirm button.danger');
+
+      expect(selection.document()?.id).toBe('a');
+    });
+
     it('keeps the row and shows the server message when the deletion is refused', () => {
       api.list.and.returnValue(of([doc('a', 'ready')]));
       api.delete.and.returnValue(

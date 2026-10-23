@@ -90,14 +90,14 @@ Web application layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.
 
 **Independent Test**: Ask a question, then a short follow-up that only makes sense given the first answer, and confirm it is answered in context; reload and confirm the conversation is gone.
 
-- [ ] T030 [US2] Extend `QuestionPromptBuilder` (`src/Scriptorium.Core/Services/QuestionPromptBuilder.cs`) to add the earlier exchanges as alternating user and assistant messages between the system message and the new question, keeping only the most recent `MaxHistoryExchanges` and no more than `MaxHistoryCharacters` characters, dropping the oldest first
-- [ ] T031 [P] [US2] Extend `QuestionPromptBuilderTests` (`tests/Scriptorium.Core.Tests/Services/QuestionPromptBuilderTests.cs`) with the history cases: order and roles, the exchange limit, the character cap, an empty history
-- [ ] T032 [US2] Extend `DocumentQuestionService` (`src/Scriptorium.Core/Services/DocumentQuestionService.cs`) to accept the earlier exchanges and pass them to the builder
-- [ ] T033 [P] [US2] Extend `DocumentQuestionServiceTests` (`tests/Scriptorium.Core.Tests/Services/DocumentQuestionServiceTests.cs`) so the history reaches the prompt
-- [ ] T034 [US2] Extend `POST /api/documents/{id}/ask` (`src/Scriptorium.API/Endpoints/QuestionEndpoints.cs`) to read `history` from the body and pass it on, answering `400` when a history entry is incomplete
-- [ ] T035 [P] [US2] Extend `QuestionEndpointTests` (`tests/Scriptorium.Infrastructure.Tests/Endpoints/QuestionEndpointTests.cs`): the history is forwarded to the provider, no history works, an incomplete entry gives `400`
-- [ ] T036 [US2] Make the conversation continuous in the Angular panel (`src/Scriptorium.Web/src/app/documents/ask/ask-panel.component.ts` and `.html`): send the earlier exchanges with every question, add a **New conversation** button, and discard the transcript when the panel closes, another document is chosen or the open document is deleted (the list calls `ConversationSelectionService` on deletion, `src/Scriptorium.Web/src/app/documents/document-list/document-list.component.ts`)
-- [ ] T037 [P] [US2] Specs for the above in `ask-panel.component.spec.ts` and `document-list.component.spec.ts`: the history is sent, **New conversation** empties the transcript, choosing another document or deleting the open one discards it
+- [X] T030 [US2] Extend `QuestionPromptBuilder` (`src/Scriptorium.Core/Services/QuestionPromptBuilder.cs`) to add the earlier exchanges as alternating user and assistant messages between the system message and the new question, keeping only the most recent `MaxHistoryExchanges` and no more than `MaxHistoryCharacters` characters, dropping the oldest first
+- [X] T031 [P] [US2] Extend `QuestionPromptBuilderTests` (`tests/Scriptorium.Core.Tests/Services/QuestionPromptBuilderTests.cs`) with the history cases: order and roles, the exchange limit, the character cap, an empty history
+- [X] T032 [US2] Extend `DocumentQuestionService` (`src/Scriptorium.Core/Services/DocumentQuestionService.cs`) to accept the earlier exchanges and pass them to the builder
+- [X] T033 [P] [US2] Extend `DocumentQuestionServiceTests` (`tests/Scriptorium.Core.Tests/Services/DocumentQuestionServiceTests.cs`) so the history reaches the prompt
+- [X] T034 [US2] Extend `POST /api/documents/{id}/ask` (`src/Scriptorium.API/Endpoints/QuestionEndpoints.cs`) to read `history` from the body and pass it on, answering `400` when a history entry is incomplete
+- [X] T035 [P] [US2] Extend `QuestionEndpointTests` (`tests/Scriptorium.Infrastructure.Tests/Endpoints/QuestionEndpointTests.cs`): the history is forwarded to the provider, no history works, an incomplete entry gives `400`
+- [X] T036 [US2] Make the conversation continuous in the Angular panel (`src/Scriptorium.Web/src/app/documents/ask/ask-panel.component.ts` and `.html`): send the earlier exchanges with every question, add a **New conversation** button, and discard the transcript when the panel closes, another document is chosen or the open document is deleted (the list calls `ConversationSelectionService` on deletion, `src/Scriptorium.Web/src/app/documents/document-list/document-list.component.ts`)
+- [X] T037 [P] [US2] Specs for the above in `ask-panel.component.spec.ts` and `document-list.component.spec.ts`: the history is sent, **New conversation** empties the transcript, choosing another document or deleting the open one discards it
 
 **Checkpoint**: User Stories 1 and 2 both work independently
 

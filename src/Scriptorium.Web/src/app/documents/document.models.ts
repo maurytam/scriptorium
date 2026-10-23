@@ -39,6 +39,12 @@ export interface DocumentSummary {
   status: DocumentStatus;
 }
 
+/** One earlier question and answer, sent back with the next question so the model has the context. */
+export interface AskExchange {
+  question: string;
+  answer: string;
+}
+
 export interface AskResponse {
   answer: string;
   truncated: boolean;

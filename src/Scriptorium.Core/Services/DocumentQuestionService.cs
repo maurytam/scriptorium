@@ -25,7 +25,8 @@ public sealed class DocumentQuestionService
         _options = options;
     }
 
-    public async Task<AskResult> AskAsync(Guid documentId, string question, CancellationToken ct)
+    public async Task<AskResult> AskAsync(
+        Guid documentId, string question, IReadOnlyList<ChatExchange>? history, CancellationToken ct)
     {
         var trimmed = question.Trim();
         var invalid = ValidateQuestion(trimmed);
@@ -40,7 +41,7 @@ public sealed class DocumentQuestionService
             return AskResult.Failure(text.FailureKind, text.Error);
         }
 
-        var prompt = _promptBuilder.Build(text.Value, trimmed);
+        var prompt = _promptBuilder.Build(text.Value, trimmed, history);
         var answer = await _provider.CompleteAsync(prompt.Request, ct);
         return answer.IsSuccess
             ? AskResult.Success(answer.Text, prompt.Truncated)

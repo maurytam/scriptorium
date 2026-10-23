@@ -130,9 +130,19 @@ describe('DocumentApiService', () => {
 
     const request = http.expectOne('/api/documents/abc/ask');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ question: 'Who signed?' });
+    expect(request.request.body).toEqual({ question: 'Who signed?', history: [] });
     request.flush({ answer: 'Maria Rossi.', truncated: false });
     expect(received).toEqual({ answer: 'Maria Rossi.', truncated: false });
+  });
+
+  it('sends the earlier exchanges with the question', () => {
+    const history = [{ question: 'Who signed?', answer: 'Maria Rossi.' }];
+
+    service.ask('abc', 'When?', history).subscribe();
+
+    const request = http.expectOne('/api/documents/abc/ask');
+    expect(request.request.body).toEqual({ question: 'When?', history });
+    request.flush({ answer: 'In May.', truncated: false });
   });
 
   it('propagates the server message when a question is refused', () => {
