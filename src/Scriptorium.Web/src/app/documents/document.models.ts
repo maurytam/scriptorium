@@ -49,3 +49,7 @@ export interface AskResponse {
   answer: string;
   truncated: boolean;
 }
+
+export interface AskLimits {
+  maxQuestionLength: number;
+}

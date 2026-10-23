@@ -55,5 +55,18 @@ Ask a question about a document. The server keeps no conversation: earlier excha
   ```
 - `500 Internal Server Error` — anything unexpected; generic body, no details
 
+## GET /api/documents/ask/limits
+
+The limit the web page needs before a question is sent, so its character counter always matches the server's
+setting `Qa:MaxQuestionLength`. The page reads it each time a conversation is opened.
+
+**Response**: `200 OK`
+
+```json
+{ "maxQuestionLength": 2000 }
+```
+
+The server still validates every question (`400` above); this endpoint only lets the page warn the user first.
+
 Corresponds to spec FR-001 to FR-003, FR-006, FR-008 to FR-010 and FR-012; User Stories 1 to 3.
 No document text or question is sent anywhere except to the model configured in `Ollama:BaseUrl` (FR-004).

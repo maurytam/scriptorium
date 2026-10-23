@@ -4,6 +4,7 @@ import { Observable, Subject, filter, map, switchMap, take, timer } from 'rxjs';
 
 import {
   AskExchange,
+  AskLimits,
   AskResponse,
   DocumentDetails,
   DocumentSummary,
@@ -49,6 +50,10 @@ export class DocumentApiService {
 
   ask(id: string, question: string, history: AskExchange[] = []): Observable<AskResponse> {
     return this.http.post<AskResponse>(`${DOCUMENTS_URL}/${id}/ask`, { question, history });
+  }
+
+  getAskLimits(): Observable<AskLimits> {
+    return this.http.get<AskLimits>(`${DOCUMENTS_URL}/ask/limits`);
   }
 
   getLimits(): Observable<UploadLimits> {

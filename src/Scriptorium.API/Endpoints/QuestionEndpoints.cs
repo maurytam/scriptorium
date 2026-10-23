@@ -10,6 +10,7 @@ public static class QuestionEndpoints
     public static IEndpointRouteBuilder MapQuestionEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/api/documents/{id:guid}/ask", AskAsync);
+        app.MapGet("/api/documents/ask/limits", (QaOptions options) => Results.Ok(AskLimitsDto.From(options)));
 
         return app;
     }
@@ -55,6 +56,8 @@ public static class QuestionEndpoints
             AskFailureKind.InvalidQuestion => Results.BadRequest(body),
             AskFailureKind.NotFound => Results.NotFound(body),
             AskFailureKind.NotReady => Results.Conflict(body),
+            AskFailureKind.ModelUnavailable => Results.Json(body, statusCode: StatusCodes.Status503ServiceUnavailable),
+            AskFailureKind.Timeout => Results.Json(body, statusCode: StatusCodes.Status504GatewayTimeout),
             _ => Results.Json(body, statusCode: StatusCodes.Status500InternalServerError)
         };
     }

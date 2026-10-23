@@ -21,6 +21,11 @@
         @for (exchange of transcript(); track $index) {
           <li class="exchange">
             <p class="question">{{ exchange.question }}</p>
+            @if (exchange.truncated) {
+              <p class="notice" role="note">
+                This answer is based only on the first part of the document, which is too long to be read in full.
+              </p>
+            }
             <p class="answer">{{ exchange.answer }}</p>
           </li>
         }
@@ -51,6 +56,14 @@
         (keydown.enter)="onEnter($event)"
       ></textarea>
       <button type="submit" [disabled]="!canSend()">Send</button>
+      @if (maxQuestionLength(); as max) {
+        <p class="char-counter" [class.over]="tooLong()" aria-live="polite">
+          {{ questionLength() }} / {{ max }}
+          @if (tooLong()) {
+            <span>: too long, shorten the question to send it</span>
+          }
+        </p>
+      }
     </form>
   </section>
 }

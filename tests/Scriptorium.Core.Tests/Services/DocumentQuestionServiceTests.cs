@@ -132,14 +132,26 @@ public class DocumentQuestionServiceTests
     }
 
     [Theory]
-    [InlineData(AiFailureKind.Unavailable)]
-    [InlineData(AiFailureKind.Timeout)]
-    [InlineData(AiFailureKind.Failed)]
-    public async Task AskAsync_ModelFailure_IsReportedAsAnInternalErrorWithoutDetails(AiFailureKind kind)
+    [InlineData(AiFailureKind.Unavailable, AskFailureKind.ModelUnavailable)]
+    [InlineData(AiFailureKind.Timeout, AskFailureKind.Timeout)]
+    public async Task AskAsync_ModelFailureTheUserCanActOn_KeepsItsKindAndTheProviderMessage(AiFailureKind kind, AskFailureKind expected)
     {
         ReadyDocument("text");
         _provider.Setup(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(AiResult.Failure(kind, "provider detail"));
+            .ReturnsAsync(AiResult.Failure(kind, "message for the user"));
+
+        var result = await _service.AskAsync(_id, "q", null, CancellationToken.None);
+
+        result.FailureKind.Should().Be(expected);
+        result.Error.Should().Be("message for the user");
+    }
+
+    [Fact]
+    public async Task AskAsync_AnyOtherModelFailure_IsReportedAsAnInternalErrorWithoutDetails()
+    {
+        ReadyDocument("text");
+        _provider.Setup(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AiResult.Failure(AiFailureKind.Failed, "provider detail"));
 
         var result = await _service.AskAsync(_id, "q", null, CancellationToken.None);
 

@@ -156,6 +156,17 @@ describe('DocumentApiService', () => {
     expect(error?.error.error).toBe('The question is empty.');
   });
 
+  it('reads the question length limit from the server', () => {
+    let maxQuestionLength = 0;
+
+    service.getAskLimits().subscribe((limits) => (maxQuestionLength = limits.maxQuestionLength));
+
+    const request = http.expectOne('/api/documents/ask/limits');
+    expect(request.request.method).toBe('GET');
+    request.flush({ maxQuestionLength: 500 });
+    expect(maxQuestionLength).toBe(500);
+  });
+
   it('reads the upload limits from the server', () => {
     let maxSizeBytes = 0;
 

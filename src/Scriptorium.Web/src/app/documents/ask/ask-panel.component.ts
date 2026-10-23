@@ -3,6 +3,7 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { Subscription } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
+import { describeAskFailure } from './ask-failure-message';
 import { ConversationSelectionService } from './conversation-selection.service';
 
 interface Exchange {
@@ -19,21 +20,34 @@ export class AskPanelComponent {
   private readonly api = inject(DocumentApiService);
   private readonly selection = inject(ConversationSelectionService);
   private pending: Subscription | null = null;
+  private limitsRequest: Subscription | null = null;
 
   readonly document = this.selection.document;
   readonly transcript = signal<Exchange[]>([]);
   readonly question = signal('');
   readonly waiting = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly canSend = computed(() => !this.waiting() && this.question().trim().length > 0);
+  readonly maxQuestionLength = signal<number | null>(null);
+  // The server trims the question before measuring it, so the counter does the same.
+  readonly questionLength = computed(() => this.question().trim().length);
+  readonly tooLong = computed(() => {
+    const max = this.maxQuestionLength();
+    return max !== null && this.questionLength() > max;
+  });
+  readonly canSend = computed(() => !this.waiting() && this.questionLength() > 0 && !this.tooLong());
 
   private readonly documentId = computed(() => this.document()?.id ?? null);
 
   constructor() {
     // Opening another document, or closing the card, starts from an empty conversation (FR-007).
     effect(() => {
-      this.documentId();
-      untracked(() => this.reset());
+      const id = this.documentId();
+      untracked(() => {
+        this.reset();
+        if (id !== null) {
+          this.loadLimits();
+        }
+      });
     });
   }
 
@@ -71,7 +85,7 @@ export class AskPanelComponent {
         this.waiting.set(false);
       },
       error: (error: HttpErrorResponse) => {
-        this.errorMessage.set(error.error?.error ?? 'The question could not be answered. Please try again.');
+        this.errorMessage.set(describeAskFailure(error));
         this.waiting.set(false);
       },
     });
@@ -85,7 +99,18 @@ export class AskPanelComponent {
     this.reset();
   }
 
+  // Read each time a conversation opens, so a limit changed in the server settings shows up without a reload.
+  private loadLimits(): void {
+    this.limitsRequest = this.api.getAskLimits().subscribe({
+      next: (limits) => this.maxQuestionLength.set(limits.maxQuestionLength),
+      // Without the limit there is no pre-check; the server still validates every question.
+      error: () => undefined,
+    });
+  }
+
   private reset(): void {
+    this.limitsRequest?.unsubscribe();
+    this.limitsRequest = null;
     this.pending?.unsubscribe(); // a late answer about the previous document must not appear here
     this.pending = null;
     this.transcript.set([]);
