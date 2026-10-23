@@ -60,7 +60,8 @@ export class AskPanelComponent {
     const text = this.question().trim();
     this.waiting.set(true);
     this.errorMessage.set(null);
-    this.pending = this.api.ask(document.id, text).subscribe({
+    const history = this.transcript().map(({ question, answer }) => ({ question, answer }));
+    this.pending = this.api.ask(document.id, text, history).subscribe({
       next: (response) => {
         this.transcript.update((exchanges) => [
           ...exchanges,
@@ -78,6 +79,10 @@ export class AskPanelComponent {
 
   close(): void {
     this.selection.close();
+  }
+
+  newConversation(): void {
+    this.reset();
   }
 
   private reset(): void {

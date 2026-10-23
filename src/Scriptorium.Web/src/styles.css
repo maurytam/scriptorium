@@ -502,6 +502,12 @@ progress:not([value])::-webkit-progress-bar {
   gap: 1rem;
 }
 
+.ask-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+
 .ask-header h2 {
   font-size: 1.35rem;
   overflow-wrap: anywhere;

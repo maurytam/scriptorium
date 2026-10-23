@@ -2,7 +2,12 @@
   <section class="card ask" aria-label="Ask about a document">
     <header class="ask-header">
       <h2>Ask about <span class="ask-document">{{ doc.fileName }}</span></h2>
-      <button type="button" class="secondary" (click)="close()">Close</button>
+      <div class="ask-actions">
+        @if (transcript().length > 0) {
+          <button type="button" class="secondary" (click)="newConversation()">New conversation</button>
+        }
+        <button type="button" class="secondary" (click)="close()">Close</button>
+      </div>
     </header>
 
     @if (transcript().length === 0 && !waiting()) {

@@ -129,6 +129,49 @@ public sealed class QuestionEndpointTests : IDisposable
         (await response.Content.ReadAsStringAsync()).Should().NotContain("internal detail");
     }
 
+    [Fact]
+    public async Task Ask_WithHistory_ForwardsTheEarlierExchangesToTheModel()
+    {
+        var id = await ReadyDocumentAsync("Maria Rossi signed the agreement in May.");
+        var history = new[] { new { question = "Who signed?", answer = "Maria Rossi." } };
+
+        var response = await _client.PostAsJsonAsync($"/api/documents/{id}/ask", new { question = "When?", history });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _sentToModel!.Messages.Skip(1).Should().Equal(
+            new AiMessage(AiRole.User, "Who signed?"),
+            new AiMessage(AiRole.Assistant, "Maria Rossi."),
+            new AiMessage(AiRole.User, "When?"));
+    }
+
+    [Fact]
+    public async Task Ask_WithAnEmptyHistory_WorksAsWithoutOne()
+    {
+        var id = await ReadyDocumentAsync("some text");
+
+        var response = await _client.PostAsJsonAsync($"/api/documents/{id}/ask", new { question = "q", history = Array.Empty<object>() });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _sentToModel!.Messages.Should().HaveCount(2);
+    }
+
+    [Theory]
+    [InlineData("""{"question":"q","history":[{"question":"Who?","answer":""}]}""")]
+    [InlineData("""{"question":"q","history":[{"question":"  ","answer":"Maria"}]}""")]
+    [InlineData("""{"question":"q","history":[{"question":"Who?"}]}""")]
+    [InlineData("""{"question":"q","history":[null]}""")]
+    public async Task Ask_AnIncompleteHistoryEntry_ReturnsBadRequestWithoutCallingTheModel(string json)
+    {
+        var id = await ReadyDocumentAsync("some text");
+
+        var response = await _client.PostAsync($"/api/documents/{id}/ask", new StringContent(json, Encoding.UTF8, "application/json"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString()
+            .Should().Be("Every earlier exchange needs a question and an answer.");
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private async Task<Guid> ReadyDocumentAsync(string text)
     {
         var id = await _host.UploadAcceptedAsync("notes.txt", SampleDocuments.Txt(text));

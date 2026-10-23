@@ -10,6 +10,9 @@ public class QuestionPromptBuilderTests
     private static QuestionPromptBuilder Builder(int maxDocumentCharacters = 4000) =>
         new(new QaOptions { MaxDocumentCharacters = maxDocumentCharacters });
 
+    private static QuestionPromptBuilder HistoryBuilder(int maxExchanges = 10, int maxCharacters = 3000) =>
+        new(new QaOptions { MaxHistoryExchanges = maxExchanges, MaxHistoryCharacters = maxCharacters });
+
     [Fact]
     public void Build_PutsTheRulesAndTheDocumentInTheSystemMessageAndTheQuestionLast()
     {
@@ -82,5 +85,64 @@ public class QuestionPromptBuilderTests
         var prompt = Builder().Build("text", "  what about 100%?  ");
 
         prompt.Request.Messages[^1].Content.Should().Be("  what about 100%?  ");
+    }
+
+    [Fact]
+    public void Build_WithHistory_AddsAlternatingUserAndAssistantMessagesBetweenTheRulesAndTheQuestion()
+    {
+        var history = new[] { new ChatExchange("Who signed?", "Maria."), new ChatExchange("When?", "In May.") };
+
+        var messages = HistoryBuilder().Build("text", "Where?", history).Request.Messages;
+
+        messages.Select(m => (m.Role, m.Content)).Should().Equal(
+            (AiRole.System, messages[0].Content),
+            (AiRole.User, "Who signed?"),
+            (AiRole.Assistant, "Maria."),
+            (AiRole.User, "When?"),
+            (AiRole.Assistant, "In May."),
+            (AiRole.User, "Where?"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public void Build_WithoutHistory_ProducesOnlyTheRulesAndTheQuestion(int? count)
+    {
+        IReadOnlyList<ChatExchange>? history = count is null ? null : [];
+
+        var messages = HistoryBuilder().Build("text", "q", history).Request.Messages;
+
+        messages.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void Build_KeepsOnlyTheMostRecentExchanges()
+    {
+        var history = Enumerable.Range(1, 5).Select(i => new ChatExchange($"q{i}", $"a{i}")).ToArray();
+
+        var messages = HistoryBuilder(maxExchanges: 2).Build("text", "now", history).Request.Messages;
+
+        messages.Skip(1).Select(m => m.Content).Should().Equal("q4", "a4", "q5", "a5", "now");
+    }
+
+    [Fact]
+    public void Build_DropsTheOldestExchangesFirstWhenTheCharacterCapIsReached()
+    {
+        // 4 characters per exchange: a cap of 9 holds two of them, never a part of a third.
+        var history = new[] { new ChatExchange("q1", "a1"), new ChatExchange("q2", "a2"), new ChatExchange("q3", "a3") };
+
+        var messages = HistoryBuilder(maxCharacters: 9).Build("text", "now", history).Request.Messages;
+
+        messages.Skip(1).Select(m => m.Content).Should().Equal("q2", "a2", "q3", "a3", "now");
+    }
+
+    [Fact]
+    public void Build_AnExchangeLargerThanTheCapIsLeftOutTogetherWithEverythingOlder()
+    {
+        var history = new[] { new ChatExchange("short", "one"), new ChatExchange(new string('q', 50), "long") };
+
+        var messages = HistoryBuilder(maxCharacters: 20).Build("text", "now", history).Request.Messages;
+
+        messages.Should().HaveCount(2, "the newest exchange does not fit, and an older one must not be sent without it");
     }
 }
