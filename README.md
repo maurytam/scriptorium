@@ -113,7 +113,8 @@ Any key can also be set with an environment variable, using `__` for the colon (
 | `GET` | `/api/documents/{id}/text` | Extracted text (`409` until the document is ready) |
 | `DELETE` | `/api/documents/{id}` | Delete a document (`409` while it is still processing) |
 | `GET` | `/api/documents/limits` | Upload limits enforced by the server |
-| `POST` | `/api/documents/{id}/ask` | Ask a question about a ready document (JSON: `question`, optional `history` of earlier exchanges). `200` with `answer` and `truncated`, or `400` invalid question, `404` unknown document, `409` document not ready, `500` if the model cannot answer |
+| `POST` | `/api/documents/{id}/ask` | Ask a question about a ready document (JSON: `question`, optional `history` of earlier exchanges). `200` with `answer` and `truncated`, or `400` invalid question, `404` unknown document, `409` document not ready, `503` Ollama or the model not available, `504` no answer in time |
+| `GET` | `/api/documents/ask/limits` | Longest accepted question, from `Qa:MaxQuestionLength` (the web page uses it for its character counter) |
 
 The full contracts are in [`specs/001-document-upload-parsing/contracts/documents-api.md`](specs/001-document-upload-parsing/contracts/documents-api.md)
 and [`specs/002-ask-document-questions/contracts/ask-api.md`](specs/002-ask-document-questions/contracts/ask-api.md).

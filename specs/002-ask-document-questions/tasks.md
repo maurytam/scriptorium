@@ -109,12 +109,15 @@ Web application layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.
 
 **Independent Test**: Ask about a very long document and see the notice; stop Ollama and see a specific message with the question still in the input; send an empty or over-long question and see what to fix.
 
-- [ ] T038 [US3] Extend `DocumentQuestionService` (`src/Scriptorium.Core/Services/DocumentQuestionService.cs`): map `AiFailureKind.Unavailable` to `ModelUnavailable`, `Timeout` to `Timeout` and `Failed` to `Internal`, and carry the builder's truncation flag into `AskResult.Truncated`
-- [ ] T039 [P] [US3] Extend `DocumentQuestionServiceTests` (`tests/Scriptorium.Core.Tests/Services/DocumentQuestionServiceTests.cs`): each provider failure maps to the right kind, the truncation flag reaches the result
-- [ ] T040 [US3] Extend `QuestionEndpoints` (`src/Scriptorium.API/Endpoints/QuestionEndpoints.cs`): `ModelUnavailable` → `503` and `Timeout` → `504` with the messages of `contracts/ask-api.md`, `Internal` → generic `500`, and `truncated` in the `200` body
-- [ ] T041 [P] [US3] Extend `QuestionEndpointTests` (`tests/Scriptorium.Infrastructure.Tests/Endpoints/QuestionEndpointTests.cs`): `503`, `504` and `500` from a failing fake provider (the API keeps answering afterwards), `400` for a question over 2,000 characters, `truncated: true` for a document over the budget
-- [ ] T042 [US3] Extend the Angular panel (`src/Scriptorium.Web/src/app/documents/ask/ask-panel.component.ts` and `.html`): the "based only on the first part of the document" notice when `truncated` is true, a specific message per failure (`400`, `404` document gone, `409`, `503` Ollama not available, `504` too slow, network error), the question kept in the input for a retry, and a client-side check that blocks an empty or over-long question with a character counter
-- [ ] T043 [P] [US3] Specs for the above in `ask-panel.component.spec.ts`: the notice, one test per failure message, the question kept after a failure, the counter and the blocked send
+- [X] T038 [US3] Extend `DocumentQuestionService` (`src/Scriptorium.Core/Services/DocumentQuestionService.cs`): map `AiFailureKind.Unavailable` to `ModelUnavailable`, `Timeout` to `Timeout` and `Failed` to `Internal`, and carry the builder's truncation flag into `AskResult.Truncated`
+- [X] T039 [P] [US3] Extend `DocumentQuestionServiceTests` (`tests/Scriptorium.Core.Tests/Services/DocumentQuestionServiceTests.cs`): each provider failure maps to the right kind, the truncation flag reaches the result
+- [X] T040 [US3] Extend `QuestionEndpoints` (`src/Scriptorium.API/Endpoints/QuestionEndpoints.cs`): `ModelUnavailable` → `503` and `Timeout` → `504` with the messages of `contracts/ask-api.md`, `Internal` → generic `500`, and `truncated` in the `200` body
+- [X] T041 [P] [US3] Extend `QuestionEndpointTests` (`tests/Scriptorium.Infrastructure.Tests/Endpoints/QuestionEndpointTests.cs`): `503`, `504` and `500` from a failing fake provider (the API keeps answering afterwards), `400` for a question over 2,000 characters, `truncated: true` for a document over the budget
+- [X] T042 [US3] Extend the Angular panel (`src/Scriptorium.Web/src/app/documents/ask/ask-panel.component.ts` and `.html`): the "based only on the first part of the document" notice when `truncated` is true, a specific message per failure (`400`, `404` document gone, `409`, `503` Ollama not available, `504` too slow, network error), the question kept in the input for a retry, and a client-side check that blocks an empty or over-long question with a character counter
+- [X] T043 [P] [US3] Specs for the above in `ask-panel.component.spec.ts`: the notice, one test per failure message, the question kept after a failure, the counter and the blocked send
+
+- [X] T047 [US3] Added after approval, so the character counter follows the server setting instead of a fixed number: `GET /api/documents/ask/limits` returns `{ maxQuestionLength }` from `QaOptions` (`AskLimitsDto` in `src/Scriptorium.Core/Dtos/AskDtos.cs`, the route in `src/Scriptorium.API/Endpoints/QuestionEndpoints.cs`), with tests in `AskDtosTests` and `QuestionEndpointTests` (default value, and a value set through `Qa:MaxQuestionLength`), and the contract in `contracts/ask-api.md`
+- [X] T048 [US3] Added after approval: `DocumentApiService.getAskLimits()` and the panel reading the limit every time a conversation opens (`ask-panel.component.ts`), with specs in `document-api.service.spec.ts` and `ask-panel.component.spec.ts`; the failure texts live in `ask-failure-message.ts` with their own spec
 
 **Checkpoint**: All three user stories are independently functional
 
@@ -123,7 +126,7 @@ Web application layout per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [X] T044 [P] Update `README.md`: describe the feature, add Ollama and the model as a prerequisite for asking questions (`ollama pull qwen3.5:9b`), the `Ollama` and `Qa` configuration keys, the new endpoint in the API table, and mark the roadmap item as done
-- [ ] T045 Run the `quickstart.md` scenarios 1 to 9 against the real Ollama and the real model and record the results in `specs/002-ask-document-questions/validation-results.md` (needs Ollama running on the machine)
+- [X] T045 Run the `quickstart.md` scenarios 1 to 9 against the real Ollama and the real model and record the results in `specs/002-ask-document-questions/validation-results.md` (needs Ollama running on the machine)
 - [X] T046 [P] Review all new classes against Constitution VI (methods under 30 lines, single responsibility) and against the contract rule that the question and the document text are never logged; record the outcome in `specs/002-ask-document-questions/validation-results.md` and refactor anything that exceeds it
 
 ---

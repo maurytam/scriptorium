@@ -45,8 +45,16 @@ public sealed class DocumentQuestionService
         var answer = await _provider.CompleteAsync(prompt.Request, ct);
         return answer.IsSuccess
             ? AskResult.Success(answer.Text, prompt.Truncated)
-            : AskResult.Failure(AskFailureKind.Internal, "The answer could not be produced.");
+            : ToFailure(answer.FailureKind.Value, answer.Error);
     }
+
+    // The provider words the two failures the user can act on; anything else stays generic, with no details.
+    private static AskResult ToFailure(AiFailureKind kind, string error) => kind switch
+    {
+        AiFailureKind.Unavailable => AskResult.Failure(AskFailureKind.ModelUnavailable, error),
+        AiFailureKind.Timeout => AskResult.Failure(AskFailureKind.Timeout, error),
+        _ => AskResult.Failure(AskFailureKind.Internal, "The answer could not be produced.")
+    };
 
     private AskResult? ValidateQuestion(string question)
     {

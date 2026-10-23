@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
-import { AskResponse, DocumentSummary } from '../document.models';
+import { AskLimits, AskResponse, DocumentSummary } from '../document.models';
 import { AskPanelComponent } from './ask-panel.component';
 import { ConversationSelectionService } from './conversation-selection.service';
 
@@ -23,7 +23,8 @@ describe('AskPanelComponent', () => {
   let api: jasmine.SpyObj<DocumentApiService>;
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['ask']);
+    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['ask', 'getAskLimits']);
+    api.getAskLimits.and.returnValue(of({ maxQuestionLength: 2000 }));
     await TestBed.configureTestingModule({
       imports: [AskPanelComponent],
       providers: [{ provide: DocumentApiService, useValue: api }],
@@ -150,6 +151,166 @@ describe('AskPanelComponent', () => {
     fixture.detectChanges();
 
     expect(text()).toContain('The question could not be answered');
+  });
+
+  it('shows the notice that only the first part was read when the answer is truncated', () => {
+    api.ask.and.returnValues(of(answer('Cut answer.', true)), of(answer('Full answer.', false)));
+    open();
+
+    type('First?');
+    sendButton().click();
+    type('Second?');
+    sendButton().click();
+    fixture.detectChanges();
+
+    const exchanges = root().querySelectorAll('.exchange');
+    expect(exchanges[0].querySelector('.notice')?.textContent).toContain('based only on the first part of the document');
+    expect(exchanges[1].querySelector('.notice')).toBeNull();
+  });
+
+  describe('when a question fails', () => {
+    const cases: [string, number, unknown, string][] = [
+      ['an invalid question (400)', 400, { error: 'The question is empty.' }, 'The question is empty.'],
+      ['a document that is gone (404)', 404, { error: 'Document not found.' }, 'This document no longer exists'],
+      ['a document that is not ready (409)', 409, { error: 'The document is not ready. Current status: processing.' }, 'Current status: processing.'],
+      ['a model that is not available (503)', 503, { error: 'The answering model is not available. Check that Ollama is running and the model is installed.' }, 'Check that Ollama is running'],
+      ['a model that is too slow (504)', 504, { error: 'The model did not answer in time. Please try again.' }, 'did not answer in time'],
+      ['the server being unreachable (network error)', 0, null, 'Cannot reach the Scriptorium server'],
+      ['an unexpected error (500)', 500, { error: 'An unexpected error occurred.' }, 'The question could not be answered'],
+    ];
+
+    cases.forEach(([name, status, body, expected]) => {
+      it(`shows a specific message for ${name} and keeps the question for a retry`, () => {
+        api.ask.and.returnValue(throwError(() => new HttpErrorResponse({ status, error: body })));
+        open();
+
+        type('Who signed?');
+        sendButton().click();
+        fixture.detectChanges();
+
+        expect(root().querySelector('[role=alert]')?.textContent).toContain(expected);
+        expect(textarea().value).toBe('Who signed?');
+        expect(sendButton().disabled).toBeFalse();
+      });
+    });
+
+    it('clears the message when the question is sent again', () => {
+      api.ask.and.returnValues(throwError(() => new HttpErrorResponse({ status: 503 })), of(answer()));
+      open();
+      type('Who signed?');
+      sendButton().click();
+      fixture.detectChanges();
+      expect(root().querySelector('[role=alert]')).toBeTruthy();
+
+      sendButton().click();
+      fixture.detectChanges();
+
+      expect(root().querySelector('[role=alert]')).toBeNull();
+    });
+  });
+
+  describe('character counter', () => {
+    const counter = () => root().querySelector('.char-counter');
+    const limits = (maxQuestionLength: number): AskLimits => ({ maxQuestionLength });
+
+    it('asks the server for the limit each time a conversation is opened', () => {
+      open('a');
+      open('b');
+
+      expect(api.getAskLimits).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not ask for the limit while no document is open', () => {
+      settle();
+
+      expect(api.getAskLimits).not.toHaveBeenCalled();
+      expect(counter()).toBeNull();
+    });
+
+    it('shows how much of the limit given by the server is used', () => {
+      api.getAskLimits.and.returnValue(of(limits(500)));
+      open();
+
+      type('Who signed?');
+
+      expect(counter()?.textContent).toContain('11 / 500');
+    });
+
+    it('follows a limit that changed on the server since the last conversation', () => {
+      api.getAskLimits.and.returnValues(of(limits(2000)), of(limits(300)));
+      open('a');
+      expect(counter()?.textContent).toContain('0 / 2000');
+
+      open('b');
+
+      expect(counter()?.textContent).toContain('0 / 300');
+    });
+
+    it('counts the question as the server does, without the spaces around it', () => {
+      api.getAskLimits.and.returnValue(of(limits(500)));
+      open();
+
+      type('   Who signed?   ');
+
+      expect(counter()?.textContent).toContain('11 / 500');
+    });
+
+    it('accepts a question exactly at the limit', () => {
+      api.getAskLimits.and.returnValue(of(limits(10)));
+      open();
+
+      type('x'.repeat(10));
+
+      expect(counter()?.classList).not.toContain('over');
+      expect(sendButton().disabled).toBeFalse();
+    });
+
+    it('blocks the send and says why when the question is over the limit', () => {
+      api.ask.and.returnValue(of(answer()));
+      api.getAskLimits.and.returnValue(of(limits(10)));
+      open();
+
+      type('x'.repeat(11));
+
+      expect(counter()?.classList).toContain('over');
+      expect(counter()?.textContent).toContain('too long');
+      expect(sendButton().disabled).toBeTrue();
+      component.send();
+      expect(api.ask).not.toHaveBeenCalled();
+    });
+
+    it('lets the user send again once the question is shortened', () => {
+      api.getAskLimits.and.returnValue(of(limits(10)));
+      open();
+      type('x'.repeat(11));
+
+      type('x'.repeat(10));
+
+      expect(sendButton().disabled).toBeFalse();
+      expect(counter()?.classList).not.toContain('over');
+    });
+
+    it('shows no counter and does not block anything when the limit cannot be read', () => {
+      api.getAskLimits.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+      open();
+
+      type('x'.repeat(5000));
+
+      expect(counter()).toBeNull();
+      expect(sendButton().disabled).toBeFalse();
+    });
+
+    it('ignores a limit that arrives after another document was opened', () => {
+      const late = new Subject<AskLimits>();
+      api.getAskLimits.and.returnValues(late, of(limits(300)));
+      open('a');
+
+      open('b');
+      late.next(limits(10));
+      fixture.detectChanges();
+
+      expect(counter()?.textContent).toContain('0 / 300');
+    });
   });
 
   it('sends on Enter and adds a new line on Shift+Enter', () => {

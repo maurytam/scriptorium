@@ -117,7 +117,7 @@ public sealed class QuestionEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Ask_ModelFailure_ReturnsAGenericServerErrorWithoutDetails()
+    public async Task Ask_ModelFailure_ReturnsAGenericServerErrorWithoutDetailsAndTheApiKeepsAnswering()
     {
         _provider.Setup(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(AiResult.Failure(AiFailureKind.Failed, "internal detail from the provider"));
@@ -127,6 +127,68 @@ public sealed class QuestionEndpointTests : IDisposable
 
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
         (await response.Content.ReadAsStringAsync()).Should().NotContain("internal detail");
+        await AssertApiKeepsAnsweringAsync();
+    }
+
+    [Theory]
+    [InlineData(AiFailureKind.Unavailable, HttpStatusCode.ServiceUnavailable, "The answering model is not available. Check that Ollama is running and the model is installed.")]
+    [InlineData(AiFailureKind.Timeout, HttpStatusCode.GatewayTimeout, "The model did not answer in time. Please try again.")]
+    public async Task Ask_ModelNotAvailableOrTooSlow_ReturnsTheStatusAndMessageOfTheContract(
+        AiFailureKind kind, HttpStatusCode expectedStatus, string message)
+    {
+        _provider.Setup(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AiResult.Failure(kind, message));
+        var id = await ReadyDocumentAsync("some text");
+
+        var response = await AskAsync(id, "Who signed?");
+
+        response.StatusCode.Should().Be(expectedStatus);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString().Should().Be(message);
+        await AssertApiKeepsAnsweringAsync();
+    }
+
+    [Fact]
+    public async Task Ask_QuestionOverTwoThousandCharacters_ReturnsBadRequestWithoutCallingTheModel()
+    {
+        var id = await ReadyDocumentAsync("some text");
+
+        var response = await AskAsync(id, new string('q', 2001));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString().Should().Contain("2000 characters");
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetAskLimits_ReturnsTheDefaultQuestionLength()
+    {
+        var response = await _client.GetAsync("/api/documents/ask/limits");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("maxQuestionLength").GetInt32().Should().Be(2000);
+    }
+
+    [Fact]
+    public async Task GetAskLimits_FollowsTheConfiguredQuestionLength()
+    {
+        using var factory = _host.Factory.WithWebHostBuilder(
+            builder => builder.UseSetting("Qa:MaxQuestionLength", "500"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/documents/ask/limits");
+
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("maxQuestionLength").GetInt32().Should().Be(500);
+    }
+
+    [Fact]
+    public async Task Ask_DocumentOverTheBudget_ReturnsTruncatedTrue()
+    {
+        var id = await ReadyDocumentAsync(new string('x', 9000));
+
+        var response = await AskAsync(id, "Who signed?");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("truncated").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -178,6 +240,9 @@ public sealed class QuestionEndpointTests : IDisposable
         (await _host.WaitForTerminalStatusAsync(id)).GetProperty("status").GetString().Should().Be("ready");
         return id;
     }
+
+    private async Task AssertApiKeepsAnsweringAsync() =>
+        (await _client.GetAsync("/api/documents/limits")).StatusCode.Should().Be(HttpStatusCode.OK);
 
     private Task<HttpResponseMessage> AskAsync(Guid id, string question) =>
         _client.PostAsJsonAsync($"/api/documents/{id}/ask", new { question });

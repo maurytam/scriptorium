@@ -1,5 +1,6 @@
 using System.Text.Json;
 using FluentAssertions;
+using Scriptorium.Core.Ai;
 using Scriptorium.Core.Dtos;
 using Scriptorium.Core.Enums;
 using Scriptorium.Core.Results;
@@ -24,6 +25,14 @@ public class AskDtosTests
         var dto = AskResponseDto.From(AskResult.Failure(AskFailureKind.NotFound, "nope"));
 
         dto.Should().Be(new AskResponseDto(string.Empty, false));
+    }
+
+    [Fact]
+    public void AskLimitsDto_From_TakesTheQuestionLimitFromTheOptions()
+    {
+        var dto = AskLimitsDto.From(new QaOptions { MaxQuestionLength = 500 });
+
+        dto.Should().Be(new AskLimitsDto(500));
     }
 
     [Fact]
