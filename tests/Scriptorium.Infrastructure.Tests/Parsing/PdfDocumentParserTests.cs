@@ -1,6 +1,8 @@
 using System.Text;
 using FluentAssertions;
+using Moq;
 using Scriptorium.Infrastructure.Parsing;
+using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.Fonts.Standard14Fonts;
@@ -10,7 +12,7 @@ namespace Scriptorium.Infrastructure.Tests.Parsing;
 
 public class PdfDocumentParserTests
 {
-    private readonly PdfDocumentParser _parser = new();
+    private readonly PdfDocumentParser _parser = new(new PdfSignatureNoteReader());
 
     [Fact]
     public void SupportedFileType_IsPdf()
@@ -27,6 +29,57 @@ public class PdfDocumentParserTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().Contain("Hello").And.Contain("Scriptorium");
+    }
+
+    [Fact]
+    public async Task ExtractTextAsync_SignedPdf_PutsTheNoteBeforeThePageText()
+    {
+        var signature = new FakeSignature("D:20260314103200+01'00'");
+        using var stream = new MemoryStream(SignedPdfFixture.Build("Hello Scriptorium", signature));
+
+        var result = await _parser.ExtractTextAsync(stream, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should()
+            .StartWith("file firmato con firma digitale — 2026-03-14 10:32:00 +01:00\n\n")
+            .And.Contain("Hello").And.Contain("Scriptorium");
+    }
+
+    [Fact]
+    public async Task ExtractTextAsync_UnsignedPdf_ReturnsPageTextWithNoNote()
+    {
+        using var stream = new MemoryStream(BuildPdf("Hello Scriptorium"));
+
+        var result = await _parser.ExtractTextAsync(stream, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().StartWith("Hello").And.NotContain("firmato");
+    }
+
+    [Fact]
+    public async Task ExtractTextAsync_ReaderReturnsNotes_PutsAllOfThemBeforeThePageText()
+    {
+        var reader = new Mock<IPdfSignatureNoteReader>();
+        reader.Setup(r => r.Read(It.IsAny<PdfDocument>())).Returns(["note one", "note two"]);
+        var parser = new PdfDocumentParser(reader.Object);
+        using var stream = new MemoryStream(BuildPdf("Hello Scriptorium"));
+
+        var result = await parser.ExtractTextAsync(stream, CancellationToken.None);
+
+        result.Value.Should().StartWith("note one\nnote two\n\n").And.Contain("Hello");
+    }
+
+    [Fact]
+    public async Task ExtractTextAsync_ReaderReturnsNothing_ReturnsPageTextUnchanged()
+    {
+        var reader = new Mock<IPdfSignatureNoteReader>();
+        reader.Setup(r => r.Read(It.IsAny<PdfDocument>())).Returns([]);
+        var parser = new PdfDocumentParser(reader.Object);
+        using var stream = new MemoryStream(BuildPdf("Hello Scriptorium"));
+
+        var result = await parser.ExtractTextAsync(stream, CancellationToken.None);
+
+        result.Value.Should().StartWith("Hello");
     }
 
     [Fact]

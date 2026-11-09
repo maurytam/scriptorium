@@ -31,6 +31,7 @@ builder.Services.AddDbContextFactory<ScriptoriumDbContext>(options => options.Us
 builder.Services.AddSingleton<IDocumentRepository, DocumentRepository>();
 builder.Services.AddSingleton<IFileStore>(_ => new LocalFileStore(documentsPath));
 
+builder.Services.AddSingleton<IPdfSignatureNoteReader, PdfSignatureNoteReader>();
 builder.Services.AddSingleton<IDocumentParser, PdfDocumentParser>();
 builder.Services.AddSingleton<IDocumentParser, WordDocumentParser>();
 builder.Services.AddSingleton<IDocumentParser, ExcelDocumentParser>();

@@ -9,6 +9,13 @@ namespace Scriptorium.Infrastructure.Parsing;
 
 public sealed class PdfDocumentParser : IDocumentParser
 {
+    private readonly IPdfSignatureNoteReader _signatureNoteReader;
+
+    public PdfDocumentParser(IPdfSignatureNoteReader signatureNoteReader)
+    {
+        _signatureNoteReader = signatureNoteReader;
+    }
+
     public string SupportedFileType => "pdf";
 
     public Task<Result<string>> ExtractTextAsync(Stream content, CancellationToken ct)
@@ -16,7 +23,7 @@ public sealed class PdfDocumentParser : IDocumentParser
         return Task.FromResult(Extract(content, ct));
     }
 
-    private static Result<string> Extract(Stream content, CancellationToken ct)
+    private Result<string> Extract(Stream content, CancellationToken ct)
     {
         try
         {
@@ -25,7 +32,7 @@ public sealed class PdfDocumentParser : IDocumentParser
 
             return string.IsNullOrWhiteSpace(text)
                 ? Result<string>.Failure("No extractable text — scanned/image-only PDF not supported")
-                : Result<string>.Success(text);
+                : Result<string>.Success(WithSignatureNotes(pdf, text));
         }
         catch (PdfDocumentEncryptedException)
         {
@@ -35,6 +42,13 @@ public sealed class PdfDocumentParser : IDocumentParser
         {
             return Result<string>.Failure("Corrupted or unreadable PDF");
         }
+    }
+
+    // The notes come first, so they stay inside the model's document budget when a long text is cut at the end.
+    private string WithSignatureNotes(PdfDocument pdf, string pageText)
+    {
+        var notes = _signatureNoteReader.Read(pdf);
+        return notes.Count == 0 ? pageText : string.Join("\n", notes) + "\n\n" + pageText;
     }
 
     private static string ReadPages(PdfDocument pdf, CancellationToken ct)
