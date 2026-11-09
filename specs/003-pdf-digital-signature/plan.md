@@ -20,6 +20,7 @@ Mario Rossi — 2026-03-14 10:32:00 +01:00`. The name is taken from the signatur
 otherwise from the signer's certificate inside the signature's `/Contents`, read with `System.Formats.Asn1` and
 `X509CertificateLoader`, which are part of the .NET runtime (no new package; confirmed by a second spike, research R8-R13).
 Two more small classes, each behind an interface, do this work: one chooses and cleans the name, one reads the certificate.
+When no name can be extracted the note says `(firmatario sconosciuto)` (FR-016), so every note carries a signer.
 
 **Language/Version**: C# 14 / .NET 10 (backend); the Angular frontend is not touched
 

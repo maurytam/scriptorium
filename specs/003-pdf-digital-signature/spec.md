@@ -54,8 +54,9 @@ The user wants to know not only that a PDF is digitally signed, but by whom. Whe
 1. **Given** a PDF whose signature has the name field "Mario Rossi", **When** the user uploads it, **Then** the note contains "da Mario Rossi".
 2. **Given** a PDF whose signature has no name field but contains a certificate issued to "ROSSI MARIO", **When** the user uploads it, **Then** the note contains "da ROSSI MARIO".
 3. **Given** a signature that has both a name field and a certificate with a different name, **When** the user uploads it, **Then** the note shows the name field.
-4. **Given** a signature with no name field and no certificate (or one whose signer cannot be identified with certainty), **When** the user uploads it, **Then** the note has no name, exactly as before.
+4. **Given** a signature with no name field and no certificate (or one whose signer cannot be identified with certainty), **When** the user uploads it, **Then** the note says "firmatario sconosciuto" in place of the name ("file firmato con firma digitale (firmatario sconosciuto) — 2026-03-14 10:32:00 +01:00").
 5. **Given** a signed PDF with a signer name, **When** the user asks "who signed this document?", **Then** the answer gives that name.
+6. **Given** a signed PDF whose note says "firmatario sconosciuto", **When** the user asks "who signed this document?", **Then** the answer says the signer is unknown and does not invent a name.
 
 ---
 
@@ -67,8 +68,8 @@ The user wants to know not only that a PDF is digitally signed, but by whom. Whe
 - An encrypted or corrupted PDF: handled as today (rejected with the existing reason); signature detection never turns a working upload into a failure.
 - A PDF whose signature is no longer valid because the content was modified after signing: the note is still shown, because the feature reports the presence of a signature, not its validity.
 - A signature whose name field is empty or blank: treated as having no name field, so the certificate is tried.
-- A certificate that is damaged or cannot be read: the note is shown without a name; the upload does not fail.
-- A signature with several certificates (the signer's and the issuing authorities'): the name is the signer's, never an authority's; if the signer's certificate cannot be identified with certainty, no name is shown rather than a possibly wrong one.
+- A certificate that is damaged or cannot be read: the note says "firmatario sconosciuto"; the upload does not fail.
+- A signature with several certificates (the signer's and the issuing authorities'): the name is the signer's, never an authority's; if the signer's certificate cannot be identified with certainty, "firmatario sconosciuto" is written rather than a possibly wrong name.
 - A name containing line breaks, control characters or a very long text (for example crafted to look like extra instructions): shown as one short line of plain text.
 
 ## Requirements *(mandatory)*
@@ -87,9 +88,10 @@ The user wants to know not only that a PDF is digitally signed, but by whom. Whe
 - **FR-010**: A failure while looking for signatures MUST NOT cause the upload to fail: the document is processed as if it had no signature, and the existing rejection rules (encrypted, corrupted, no extractable text) are unchanged.
 - **FR-011**: When a signature has a non-blank name field for its signer, the note MUST show that name, introduced by "da" (for example "file firmato con firma digitale da Mario Rossi — 2026-03-14 10:32:00 +01:00").
 - **FR-012**: When a signature has no usable name field but contains the signer's certificate, the note MUST show the name the certificate is issued to, in the same form. The name field takes precedence over the certificate.
-- **FR-013**: When the signer's certificate cannot be read or cannot be identified with certainty, the note MUST be shown without a name; a name MUST NOT be guessed, and the name of an issuing authority MUST NOT be shown in place of the signer's.
+- **FR-013**: When the signer's certificate cannot be read or cannot be identified with certainty, the note MUST say "firmatario sconosciuto" in place of the name; a name MUST NOT be guessed, and the name of an issuing authority MUST NOT be shown in place of the signer's.
 - **FR-014**: The signer's name MUST be shown as one line of plain text: line breaks and control characters are replaced by spaces, repeated spaces are collapsed and the name is cut at 100 characters, so a name taken from the file cannot change the layout of the note or add text of its own.
-- **FR-015**: A failure while reading the signer's name MUST NOT remove the note or fail the upload: the note is shown without a name.
+- **FR-015**: A failure while reading the signer's name MUST NOT remove the note or fail the upload: the note says "firmatario sconosciuto".
+- **FR-016**: Every note MUST carry a signer: the name when one is known, otherwise exactly "firmatario sconosciuto" (for example "file firmato con firma digitale (firmatario sconosciuto)"). This also covers a signature that holds no name information at all.
 
 ### Key Entities
 
@@ -104,7 +106,7 @@ The user wants to know not only that a PDF is digitally signed, but by whom. Whe
 - **SC-002**: 100% of the unsigned test PDFs produce exactly the same extracted text as before this feature.
 - **SC-003**: For a signed PDF, asking whether the document is digitally signed and when gets a correct answer from the local model in all of 3 consecutive runs per question, each answer relying on the note (signed or not signed, and the date and time). For an unsigned PDF, the same question never gets an answer saying it is signed in 3 consecutive runs.
 - **SC-004**: No upload that succeeded before this feature fails because of it, across the existing PDF test set.
-- **SC-005**: 100% of the signed test PDFs whose signature carries a signer name (in the name field or only in a certificate) produce a note with that name, and asking "who signed this document?" gets that name in all of 3 consecutive runs with the local model.
+- **SC-005**: 100% of the signed test PDFs whose signature carries a signer name (in the name field or only in a certificate) produce a note with that name, 100% of the signed test PDFs with no extractable name produce a note saying "firmatario sconosciuto", and asking "who signed this document?" gets that name in all of 3 consecutive runs with the local model.
 
 ## Assumptions
 
@@ -112,6 +114,7 @@ The user wants to know not only that a PDF is digitally signed, but by whom. Whe
 - The fixed wording "file firmato con firma digitale" is in Italian and is not translated, regardless of the language of the document or of the question.
 - Validity (tampering after signing, certificate trust, revocation) is out of scope. The signer's name is reported as the file declares it, from the signature's name field or from the certificate; it is not checked against any trust list, so it does not prove who really signed.
 - The signer's name is read without adding any package: the runtime already provides what is needed to read a certificate (checked in the planning phase; an earlier version of this spec wrongly assumed a new package was required).
+- When the signer's name cannot be extracted the note says "firmatario sconosciuto" (user's request, 2026-11-09), including for signatures that hold no name information at all; it never leaves the signer out and never guesses.
 - The name appears with the Italian "da" ("by"), like the rest of the note, and is cut at 100 characters.
 - A signing date is "readable" when it is in the standard PDF date format and includes at least year, month, day, hour and minute. Anything less, or in another format, counts as no readable date, and the note is then shown without a date. The time zone is shown only when the file declares one.
 - Detection applies to PDF only. Word, Excel and text files are unchanged.

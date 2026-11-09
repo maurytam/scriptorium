@@ -9,7 +9,7 @@ This feature adds no endpoint and changes no request or response shape. The only
 
 ```text
 file firmato con firma digitale da Mario Rossi — 2026-03-14 10:32:00 +01:00
-file firmato con firma digitale — 2026-03-15 09:15:00 +00:00
+file firmato con firma digitale (firmatario sconosciuto) — 2026-03-15 09:15:00 +00:00
 
 <page text, as before>
 ```
@@ -18,11 +18,11 @@ file firmato con firma digitale — 2026-03-15 09:15:00 +00:00
 |---|---|
 | Position | Notes come first, one per line, in the form's field order; a blank line separates them from the page text |
 | Wording | Exactly `file firmato con firma digitale`, lowercase, no trailing full stop |
-| Signer | ` da <name>` right after the wording, only when a name is known; the name is one line of plain text, at most 100 characters, with control characters and line breaks replaced by spaces |
+| Signer | Always present: ` da <name>` right after the wording when a name is known, otherwise ` (firmatario sconosciuto)`; the name is one line of plain text, at most 100 characters, with control characters and line breaks replaced by spaces |
 | Separator | ` — ` (space, em dash, space), only when a date follows |
 | Date | `yyyy-MM-dd HH:mm:ss`, as written in the file, not converted to another time zone |
 | Offset | ` +hh:mm` / ` -hh:mm`, only when the file declares a zone |
-| No readable date | The line stops after the name (or after the wording if there is no name) |
+| No readable date | The line stops after the signer |
 | Unsigned PDF | No note, no blank line: the text is unchanged from before this feature |
 | Other file types | Unchanged |
 
@@ -36,7 +36,7 @@ signer's certificate) and proves nothing about who really signed.
 | Encrypted PDF | Fails with the existing reason `Password-protected or encrypted PDF` |
 | Corrupted PDF | Fails with `Corrupted or unreadable PDF` |
 | Signed PDF with no page text (scan) | Fails with `No extractable text — scanned/image-only PDF not supported`; the note alone does not count as text |
-| Signature or name that cannot be read | The document is processed normally; the note has no name (or no note if the signature itself cannot be read) |
+| Signature or name that cannot be read | The document is processed normally; the note says `(firmatario sconosciuto)` (or there is no note if the signature itself cannot be read) |
 
 ## Consumers
 

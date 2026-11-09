@@ -10,7 +10,7 @@ A transient value built while a PDF is parsed; it is never stored on its own.
 | Field | Meaning | Rules |
 |---|---|---|
 | Wording | The fixed text `file firmato con firma digitale` | Always present, never translated (spec Assumptions) |
-| Signer name | Who signed, as the file declares it | Optional. From the signature's `/Name` if not blank, otherwise from the signer's certificate; never guessed (FR-011 to FR-013). One line, at most 100 characters (FR-014). Introduced by `da` |
+| Signer name | Who signed, as the file declares it | Always present once User Story 3 is built: from the signature's `/Name` if not blank, otherwise from the signer's certificate, otherwise the literal `firmatario sconosciuto`; never guessed (FR-011 to FR-013, FR-016). One line, at most 100 characters (FR-014). Introduced by `da` when a name is known; the unknown signer is written in parentheses |
 | Signing date and time | What the signature declares about itself | Optional. Present only if the signature has a readable date with at least date, hour and minute (research R3). Introduced by ` — ` |
 | Offset | The time zone of the declared date | Optional. Shown only if the raw date carried a zone designator (`Z`, `+hh'mm'`, `-hh'mm'`) |
 
@@ -20,8 +20,8 @@ A transient value built while a PDF is parsed; it is never stored on its own.
 file firmato con firma digitale da Mario Rossi — 2026-03-14 10:32:00 +01:00   name and date with zone
 file firmato con firma digitale da Mario Rossi — 2026-03-14 10:32:00          name, date without zone
 file firmato con firma digitale da Mario Rossi                                name, no readable date
-file firmato con firma digitale — 2026-03-14 10:32:00 +01:00                  no name, date with zone
-file firmato con firma digitale                                               no name, no readable date
+file firmato con firma digitale (firmatario sconosciuto) — 2026-03-14 10:32:00 +01:00   unknown signer, date with zone
+file firmato con firma digitale (firmatario sconosciuto)                                unknown signer, no readable date
 ```
 
 ### Where the signer name comes from
@@ -31,8 +31,8 @@ file firmato con firma digitale                                               no
 | `/Name` present and not blank | That text (decoded; cleaned) |
 | `/Name` missing or blank, `/Contents` holds a certificate that the signer-info points to | The common name of that certificate (cleaned) |
 | Both, with different values | `/Name` |
-| Certificates present but none matches the signer-info, or the structure cannot be read | None |
-| Neither | None |
+| Certificates present but none matches the signer-info, or the structure cannot be read | `firmatario sconosciuto` |
+| Neither | `firmatario sconosciuto` |
 
 ### Relationship to the extracted text
 
@@ -57,7 +57,7 @@ For n = 0 the text is the page text alone, byte for byte what the parser produce
 | No form, or a form with no signature field | No |
 | Several signed fields | One note each, in the form's field order (FR-003) |
 | Malformed form or signature that cannot be read | No note, and the upload goes on (FR-010) |
-| Signature whose name or certificate cannot be read | The note, without a name (FR-013, FR-015) |
+| Signature whose name or certificate cannot be read | The note, with `firmatario sconosciuto` (FR-013, FR-015) |
 
 ### State transitions
 

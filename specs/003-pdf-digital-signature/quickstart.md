@@ -99,7 +99,8 @@ after a fake authority certificate).
 | File | Expected |
 |---|---|
 | `signed-name-and-certificate.pdf` (name field "Mario Rossi", certificate "ROSSI MARIO") | `da Mario Rossi` (the name field wins) |
-| `signed-certificate-unmatched.pdf` (certificates present, none matches the signer) | Note with no name; upload succeeds |
+| `signed-certificate-unmatched.pdf` (certificates present, none matches the signer) | Note with `(firmatario sconosciuto)`; upload succeeds |
+| `signed-no-signer-info.pdf` (no name field and no certificate) | `(firmatario sconosciuto)` |
 | `signed-name-blank.pdf` (blank name field plus a certificate) | The certificate's name |
 | `signed-name-injection.pdf` (name field with a line break and an instruction after it) | One single line; the name is cleaned and cut at 100 characters; the extra text is not on its own line |
 
@@ -107,5 +108,5 @@ after a fake authority certificate).
 
 Open `signed-with-name.pdf` and ask: *"Who signed this document?"* (and in Italian *"Chi ha firmato questo documento?"*).
 
-**Expected**: the answer gives the name, in all of 3 runs in a row (a new conversation each time) (SC-005). On the unsigned
-PDF the model must not invent a signer.
+**Expected**: the answer gives the name, in all of 3 runs in a row (a new conversation each time) (SC-005). On `signed-no-signer-info.pdf`
+the answer must say the signer is unknown (the note says "firmatario sconosciuto"); on the unsigned PDF the model must not invent a signer.

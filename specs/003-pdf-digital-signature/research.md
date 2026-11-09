@@ -130,7 +130,7 @@ with the runtime's `CertificateRequest`, a hand-built signed-data structure, not
 ## R8. Where does the signer's name come from, and in which order?
 
 **Decision**: First the `/Name` entry of the signature dictionary. If it is missing or blank, the name of the signer's
-certificate found in `/Contents`. If neither gives a name, the note has no name (FR-011, FR-012, FR-013).
+certificate found in `/Contents`. If neither gives a name, the note says "firmatario sconosciuto" (FR-011, FR-012, FR-013, FR-016).
 
 **Rationale**: It is the order the user asked for. `/Name` is the cheap path (a text entry); the certificate is the path that
 works for most real signatures, which usually do not fill `/Name`. The certificate is parsed only when `/Name` gives nothing.
@@ -167,14 +167,15 @@ not). The spike built a structure with two certificates, the authority first and
 **Alternatives considered**:
 - *Taking the first certificate*: wrong whenever the authority comes first. Rejected.
 - *Taking the first certificate that is not a CA*: a guess that fails for unusual chains. Rejected: if the signer-info cannot be
-  matched, no name is shown (FR-013).
+  matched, the signer is "firmatario sconosciuto" (FR-013).
 - *Verifying the chain and the signature*: out of scope (FR-008) and not needed to read a name.
 
 ## R11. Sanitizing and wording the name
 
 **Decision**: Replace line breaks and control characters with spaces, collapse repeated spaces, trim, cut at 100 characters; a
 result that is empty counts as no name (FR-014). The note reads `file firmato con firma digitale da <name> — <date>`, or
-`... da <name>` when there is no date.
+`... da <name>` when there is no date. When there is no name the literal `firmatario sconosciuto` takes its place (FR-016, user's request of
+2026-11-09): `... (firmatario sconosciuto) — <date>`. The note reader writes this literal; `ISignerNameReader` keeps returning null.
 
 **Rationale**: The name comes from the file and ends up in the text the model reads: a newline followed by instructions would
 add a line of its own to the note. Sanitizing keeps it one short line of data. "da" follows the user's request to write *who*
