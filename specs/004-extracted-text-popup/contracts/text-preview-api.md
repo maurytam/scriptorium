@@ -27,6 +27,7 @@ Get the extracted text of a ready document, cut at the limit the model reads whe
   ```json
   { "error": "Document is not ready. Current status: processing." }
   ```
+  or, in the unexpected case of a ready document with no stored text, `{ "error": "The extracted text of this document is not available." }`
 
 **Notes**:
 - Read-only: the call changes nothing and does not touch the question flow.

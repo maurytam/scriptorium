@@ -25,6 +25,7 @@ What the use case returns. Same shape as `AskResult`.
 | Success | the excerpt (text, truncated, original length) | the document exists and is ready |
 | Failure `NotFound` | an error message | no document with that id |
 | Failure `NotReady` | an error message naming the status, e.g. `Document is not ready. Current status: processing.` | the document exists but is processing or failed |
+| Failure `NotReady` | `The extracted text of this document is not available.` | the document is ready but its text is missing (should not happen; reported instead of failing) |
 
 ## Preview DTO (API response)
 

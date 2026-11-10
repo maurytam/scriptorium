@@ -114,11 +114,11 @@ src/
     │   ├── text-popup/
     │   │   ├── text-popup-selection.service.ts   # NEW: which document's text is open (like ConversationSelectionService)
     │   │   ├── text-popup.component.ts           # NEW: the dialog, loads the preview, shows loading / error / text
-    │   │   ├── text-popup.component.html         # NEW
-    │   │   └── text-popup.component.css          # NEW (or styles in the shared stylesheet, as the other components do)
+    │   │   └── text-popup.component.html         # NEW (styles go in the shared src/styles.css, like the other components)
     │   └── document-list/
     │       └── document-list.component.{ts,html} # CHANGED: Text button on ready rows
-    └── app.component.{html,ts}                   # CHANGED: adds <app-text-popup />
+    ├── app.component.{html,ts}                   # CHANGED: adds <app-text-popup />
+    └── ../styles.css                             # CHANGED: popup, backdrop, cutting notice, scroll lock
 
 tests/
 ├── Scriptorium.Core.Tests/

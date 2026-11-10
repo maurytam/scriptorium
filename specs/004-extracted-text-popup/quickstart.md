@@ -31,6 +31,10 @@ Open the popup and close it with the **Close** button; open it again and press *
 
 **Expected**: each time the popup disappears, the list is as before, and the focus is back on the **Text** button of that row.
 
+Then repeat once with the keyboard only: Tab to the **Text** button, Enter to open, Tab inside the popup, Escape to close.
+
+**Expected**: everything is reachable and usable without the mouse, and the focus ends on the same **Text** button.
+
 ## Scenario 3: Signed PDF (User Story 1)
 
 Open the **Text** of the signed PDF.
@@ -56,7 +60,7 @@ Open the **Text** of the long `.txt`.
 
 **Expected**: only the beginning is shown, with a note `Showing the first 8,000 of <total> characters.` (the total is the real length of
 the text; if the cut falls on half of a character the shown number is one less). The text shown is exactly the first characters of the file.
-Opening a short document afterwards shows no note.
+Opening a short document afterwards shows no note. Also check: a very long line wraps inside the popup instead of widening it, the text scrolls inside the popup, and the page behind does not scroll while the popup is open.
 
 ## Scenario 7: Same cut as the model reads (User Story 2)
 
