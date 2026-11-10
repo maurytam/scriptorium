@@ -125,6 +125,108 @@ public class PdfSignatureNoteReaderTests
             .And.NotContain("\n").And.NotContain("\r");
     }
 
+    [Fact]
+    public void Read_TwoSignatures_ReturnsTwoNotesInFileOrder()
+    {
+        var first = new FakeSignature("D:20260314103200+01'00'");
+        var second = new FakeSignature("D:20260315091500Z");
+
+        ReadNotes(SignedPdfFixture.Build("Hello", first, second)).Should().Equal(
+            Wording + Unknown + " — 2026-03-14 10:32:00 +01:00",
+            Wording + Unknown + " — 2026-03-15 09:15:00 +00:00");
+    }
+
+    [Fact]
+    public void Read_FieldsListedInReverse_FollowTheOrderOfTheForm()
+    {
+        var first = new FakeSignature("D:20260314103200Z");
+        var second = new FakeSignature("D:20260315091500Z");
+
+        ReadNotes(SignedPdfFixture.BuildWithFieldsListedInReverse("Hello", first, second)).Should().Equal(
+            Wording + Unknown + " — 2026-03-15 09:15:00 +00:00",
+            Wording + Unknown + " — 2026-03-14 10:32:00 +00:00");
+    }
+
+    [Fact]
+    public void Read_SignatureWithoutDate_ReturnsTheNoteWithoutDate()
+    {
+        ReadNotes(SignedPdfFixture.Build("Hello", new FakeSignature())).Should().Equal(Wording + Unknown);
+    }
+
+    [Theory]
+    [InlineData("not a date")]
+    [InlineData("D:2026")]
+    [InlineData("D:20260314")]
+    [InlineData("D:20260314103200+0100")]
+    public void Read_UnreadableOrIncompleteDate_ReturnsTheNoteWithoutDate(string signingDate)
+    {
+        ReadNotes(SignedPdfFixture.Build("Hello", new FakeSignature(signingDate))).Should().Equal(Wording + Unknown);
+    }
+
+    [Fact]
+    public void Read_DateWithDateHourAndMinute_IsShownWithZeroSeconds()
+    {
+        ReadNotes(SignedPdfFixture.Build("Hello", new FakeSignature("D:202603141032")))
+            .Should().Equal(Wording + Unknown + " — 2026-03-14 10:32:00");
+    }
+
+    [Fact]
+    public void Read_EmptySignatureField_ReturnsNoNote()
+    {
+        ReadNotes(SignedPdfFixture.Build("Hello", new FakeSignature(IsSigned: false))).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Read_PlaceholderBesideARealSignature_ReturnsOnlyTheRealOne()
+    {
+        var notes = ReadNotes(SignedPdfFixture.Build(
+            "Hello", new FakeSignature(IsSigned: false), new FakeSignature("D:20260314103200Z")));
+
+        notes.Should().Equal(Wording + Unknown + " — 2026-03-14 10:32:00 +00:00");
+    }
+
+    [Fact]
+    public void Read_SignatureInsideANestedField_IsFound()
+    {
+        var notes = ReadNotes(SignedPdfFixture.Build("Hello", new FakeSignature("D:20260314103200Z", IsNested: true)));
+
+        notes.Should().Equal(Wording + Unknown + " — 2026-03-14 10:32:00 +00:00");
+    }
+
+    [Fact]
+    public void Read_MalformedForm_ReturnsNoNotesAndThrowsNothing()
+    {
+        var bytes = SignedPdfFixture.BuildWithMalformedForm("Hello");
+
+        var act = () => ReadNotes(bytes);
+
+        act.Should().NotThrow();
+        ReadNotes(bytes).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Read_NameReaderThrows_ReturnsNoNotesInsteadOfFailing()
+    {
+        var names = new Mock<ISignerNameReader>();
+        names.Setup(n => n.Read(It.IsAny<DictionaryToken>())).Throws<InvalidOperationException>();
+        var reader = new PdfSignatureNoteReader(names.Object);
+
+        ReadNotes(reader, SignedPdfFixture.Build("Hello", new FakeSignature("D:20260314103200Z"))).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Read_Cancelled_DoesNotSwallowTheCancellation()
+    {
+        var names = new Mock<ISignerNameReader>();
+        names.Setup(n => n.Read(It.IsAny<DictionaryToken>())).Throws<OperationCanceledException>();
+        var reader = new PdfSignatureNoteReader(names.Object);
+        var bytes = SignedPdfFixture.Build("Hello", new FakeSignature("D:20260314103200Z"));
+
+        var act = () => ReadNotes(reader, bytes);
+
+        act.Should().Throw<OperationCanceledException>();
+    }
+
     private IReadOnlyList<string> ReadNotes(byte[] pdfBytes) => ReadNotes(_reader, pdfBytes);
 
     private static IReadOnlyList<string> ReadNotes(PdfSignatureNoteReader reader, byte[] pdfBytes)

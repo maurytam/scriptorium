@@ -38,6 +38,10 @@ something you can question, summarize and mine for entities.
   based only on the document's text, and it says so when the document does not contain the answer.
   Follow-up questions keep the context of the conversation; **New conversation** starts over, and the
   conversation is forgotten when you close the panel or reload the page.
+- ✍️ **Notes digital signatures in PDFs.** For a digitally signed PDF the extracted text starts with the note
+  "file firmato con firma digitale", followed by the signer's name when the file gives one (from the signature's
+  name field or its certificate, otherwise "firmatario sconosciuto") and by the signing date and time, so you can ask who
+  signed and when. The name is reported as the file declares it, with no validity check.
 - 🏠 **Runs on your machine.** Questions and document text go only to the local [Ollama](https://ollama.com)
   server, nothing leaves your computer.
 

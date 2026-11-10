@@ -1,5 +1,6 @@
 using System.Globalization;
 using UglyToad.PdfPig;
+using UglyToad.PdfPig.AcroForms;
 using UglyToad.PdfPig.AcroForms.Fields;
 using UglyToad.PdfPig.Tokens;
 using UglyToad.PdfPig.Util;
@@ -23,12 +24,24 @@ public sealed class PdfSignatureNoteReader : IPdfSignatureNoteReader
 
     public IReadOnlyList<string> Read(PdfDocument pdf)
     {
+        try
+        {
+            return ReadNotes(pdf);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return [];
+        }
+    }
+
+    private IReadOnlyList<string> ReadNotes(PdfDocument pdf)
+    {
         if (!pdf.TryGetForm(out var form))
         {
             return [];
         }
 
-        return form.Fields
+        return form.GetFields()
             .OfType<AcroSignatureField>()
             .Select(field => SignatureDictionary(pdf, field))
             .OfType<DictionaryToken>()
@@ -69,7 +82,16 @@ public sealed class PdfSignatureNoteReader : IPdfSignatureNoteReader
             _ => null,
         };
 
-        return raw is not null && DateFormatHelper.TryParseDateTimeOffset(raw, out var date) ? Format(date, raw) : null;
+        return raw is not null && HasDateHourAndMinute(raw) && DateFormatHelper.TryParseDateTimeOffset(raw, out var date)
+            ? Format(date, raw)
+            : null;
+    }
+
+    // A shorter date such as D:2026 would print as a false precision (1 January 00:00), so it counts as no date.
+    private static bool HasDateHourAndMinute(string raw)
+    {
+        var body = raw.StartsWith("D:", StringComparison.Ordinal) ? raw[2..] : raw;
+        return body.TakeWhile(char.IsAsciiDigit).Count() >= 12;
     }
 
     private static string Format(DateTimeOffset date, string raw)
