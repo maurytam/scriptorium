@@ -6,8 +6,17 @@ namespace Scriptorium.Infrastructure.Tests.Parsing;
 /// One fake digital signature. <see cref="SigningDate"/> is written as-is into the /M entry
 /// (null = no /M). <see cref="IsSigned"/> = false leaves an empty placeholder field with no /V.
 /// <see cref="IsNested"/> puts the field under a parent field (/Kids).
+/// <see cref="SignerName"/> is written as the literal /Name (null = no /Name; blank text = a blank /Name), or as a UTF-16
+/// hexadecimal string with a byte order mark when <see cref="NameAsUtf16Hex"/> is set. <see cref="Certificate"/> puts a
+/// fake CMS structure in /Contents (null = a single zero byte).
 /// </summary>
-public sealed record FakeSignature(string? SigningDate = null, bool IsSigned = true, bool IsNested = false);
+public sealed record FakeSignature(
+    string? SigningDate = null,
+    bool IsSigned = true,
+    bool IsNested = false,
+    string? SignerName = null,
+    bool NameAsUtf16Hex = false,
+    FakeCertificate? Certificate = null);
 
 /// <summary>
 /// Builds fake PDFs with signature fields as raw PDF text (the same technique as the encrypted PDF in
@@ -59,7 +68,7 @@ public static class SignedPdfFixture
         var text = Field(field, signature.IsSigned ? dictionary : null, signature.IsNested ? parent : null);
         if (signature.IsSigned)
         {
-            text += SignatureDictionary(dictionary, signature.SigningDate);
+            text += SignatureDictionary(dictionary, signature);
         }
 
         if (signature.IsNested)
@@ -76,10 +85,29 @@ public static class SignedPdfFixture
         (parentObject is null ? string.Empty : $" /Parent {parentObject} 0 R") +
         " >>\nendobj\n";
 
-    private static string SignatureDictionary(int number, string? signingDate) =>
+    private static string SignatureDictionary(int number, FakeSignature signature) =>
         $"{number} 0 obj\n<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached" +
-        (signingDate is null ? string.Empty : $" /M ({signingDate})") +
-        " /ByteRange [0 10 20 30] /Contents <00> >>\nendobj\n";
+        (signature.SigningDate is null ? string.Empty : $" /M ({signature.SigningDate})") +
+        NameEntry(signature) +
+        $" /ByteRange [0 10 20 30] /Contents <{ContentsHex(signature.Certificate)}> >>\nendobj\n";
+
+    private static string NameEntry(FakeSignature signature)
+    {
+        if (signature.SignerName is null)
+        {
+            return string.Empty;
+        }
+
+        return signature.NameAsUtf16Hex
+            ? $" /Name <{Convert.ToHexString([0xFE, 0xFF, .. Encoding.BigEndianUnicode.GetBytes(signature.SignerName)])}>"
+            : $" /Name ({Escaped(signature.SignerName)})";
+    }
+
+    private static string Escaped(string text) =>
+        text.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)").Replace("\n", "\\n").Replace("\r", "\\r");
+
+    private static string ContentsHex(FakeCertificate? certificate) =>
+        certificate is null ? "00" : Convert.ToHexString(FakeCms.Build(certificate));
 
     private static string References(IEnumerable<int> objects) =>
         string.Join(" ", objects.Select(n => $"{n} 0 R"));

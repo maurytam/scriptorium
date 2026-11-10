@@ -9,9 +9,17 @@ namespace Scriptorium.Infrastructure.Parsing;
 public sealed class PdfSignatureNoteReader : IPdfSignatureNoteReader
 {
     private const string Wording = "file firmato con firma digitale";
+    private const string UnknownSigner = "(firmatario sconosciuto)";
 
     private static readonly NameToken ValueKey = NameToken.Create("V");
     private static readonly NameToken SigningTimeKey = NameToken.Create("M");
+
+    private readonly ISignerNameReader _signerNames;
+
+    public PdfSignatureNoteReader(ISignerNameReader signerNames)
+    {
+        _signerNames = signerNames;
+    }
 
     public IReadOnlyList<string> Read(PdfDocument pdf)
     {
@@ -39,10 +47,12 @@ public sealed class PdfSignatureNoteReader : IPdfSignatureNoteReader
         return resolved as DictionaryToken;
     }
 
-    private static string Note(DictionaryToken signature)
+    private string Note(DictionaryToken signature)
     {
+        var name = _signerNames.Read(signature);
+        var line = name is null ? $"{Wording} {UnknownSigner}" : $"{Wording} da {name}";
         var date = SigningDate(signature);
-        return date is null ? Wording : $"{Wording} — {date}";
+        return date is null ? line : $"{line} — {date}";
     }
 
     private static string? SigningDate(DictionaryToken signature)

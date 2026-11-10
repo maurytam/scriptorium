@@ -12,7 +12,8 @@ namespace Scriptorium.Infrastructure.Tests.Parsing;
 
 public class PdfDocumentParserTests
 {
-    private readonly PdfDocumentParser _parser = new(new PdfSignatureNoteReader());
+    private readonly PdfDocumentParser _parser =
+        new(new PdfSignatureNoteReader(new SignerNameReader(new CmsSignerCertificateReader())));
 
     [Fact]
     public void SupportedFileType_IsPdf()
@@ -41,8 +42,21 @@ public class PdfDocumentParserTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should()
-            .StartWith("file firmato con firma digitale — 2026-03-14 10:32:00 +01:00\n\n")
+            .StartWith("file firmato con firma digitale (firmatario sconosciuto) — 2026-03-14 10:32:00 +01:00\n\n")
             .And.Contain("Hello").And.Contain("Scriptorium");
+    }
+
+    [Fact]
+    public async Task ExtractTextAsync_SignedPdfWithSigner_PutsTheSignerInTheNote()
+    {
+        var signature = new FakeSignature("D:20260314103200+01'00'", SignerName: "Mario Rossi");
+        using var stream = new MemoryStream(SignedPdfFixture.Build("Hello Scriptorium", signature));
+
+        var result = await _parser.ExtractTextAsync(stream, CancellationToken.None);
+
+        result.Value.Should()
+            .StartWith("file firmato con firma digitale da Mario Rossi — 2026-03-14 10:32:00 +01:00\n\n")
+            .And.Contain("Hello");
     }
 
     [Fact]
