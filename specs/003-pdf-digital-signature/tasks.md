@@ -70,7 +70,7 @@ Paths per `plan.md`: `src/Scriptorium.Infrastructure/Parsing/`, `src/Scriptorium
 ### Manual check for User Story 1
 
 - [X] T010 [US1] Write a throwaway generator outside the repository (scratchpad, same technique as the research spike, not committed) and run it to put in `~/Desktop/prove-scriptorium` two fake PDFs with different content: `signed-one.pdf` (one signature, date with zone) and an unsigned PDF whose content differs from the other fake files already there. No real document is used
-- [ ] T011 [US1] With the user: run quickstart scenarios 1, 2, 5, 6 and 7 against the API (throwaway database) with Ollama and `qwen3.5:4b` (each question asked 3 times in a row, as SC-003 and the quickstart require), and wait for the user's OK before anything is committed; record the outcome in `specs/003-pdf-digital-signature/validation-results.md`
+- [X] T011 [US1] With the user: run quickstart scenarios 1, 2, 5, 6 and 7 against the API (throwaway database) with Ollama and `qwen3.5:4b` (each question asked 3 times in a row, as SC-003 and the quickstart require), and wait for the user's OK before anything is committed; record the outcome in `specs/003-pdf-digital-signature/validation-results.md`
 
 **Checkpoint**: A signed PDF shows the note and answers the two questions; an unsigned one is unchanged. This is the MVP.
 
@@ -104,7 +104,7 @@ Paths per `plan.md`: `src/Scriptorium.Infrastructure/Parsing/`, `src/Scriptorium
 ### Manual check for User Story 3
 
 - [X] T022 [US3] Extend the throwaway generator outside the repository (a small .NET program using only the runtime, because certificates are needed; not committed) and run it to add to `~/Desktop/prove-scriptorium`, each with different content: `signed-with-name.pdf`, `signed-with-certificate.pdf`, `signed-name-and-certificate.pdf`, `signed-certificate-unmatched.pdf`, `signed-name-blank.pdf`, `signed-name-injection.pdf` and `signed-no-signer-info.pdf`. Fake names only (for example "Mario Rossi" / "ROSSI MARIO"); no real person or document
-- [ ] T023 [US3] With the user: run quickstart scenarios 9, 10, 11 and 12 against the API (each question 3 times in a row) and wait for the user's OK before anything is committed; record the outcome in `specs/003-pdf-digital-signature/validation-results.md`
+- [X] T023 [US3] With the user: run quickstart scenarios 9, 10, 11 and 12 against the API (each question 3 times in a row) and wait for the user's OK before anything is committed; record the outcome in `specs/003-pdf-digital-signature/validation-results.md`
 
 **Checkpoint**: The note says who signed whenever the file gives a name, says "firmatario sconosciuto" otherwise, and never invents one.
 
