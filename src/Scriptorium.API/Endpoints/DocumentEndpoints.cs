@@ -26,6 +26,7 @@ public static class DocumentEndpoints
         group.MapGet("/limits", () => Results.Ok(new UploadLimitsDto(maxFileSizeBytes)));
         group.MapGet("/{id:guid}", GetByIdAsync);
         group.MapGet("/{id:guid}/text", GetTextAsync);
+        group.MapGet("/{id:guid}/text/preview", GetTextPreviewAsync);
         group.MapDelete("/{id:guid}", DeleteAsync);
 
         return app;
@@ -107,5 +108,19 @@ public static class DocumentEndpoints
         return text is null
             ? Results.Conflict(new ErrorDto($"Document is not ready. Current status: {document.Status.ToString().ToLowerInvariant()}."))
             : Results.Ok(ExtractedTextDto.From(text));
+    }
+
+    private static async Task<IResult> GetTextPreviewAsync(Guid id, DocumentTextPreviewService previewService, CancellationToken ct)
+    {
+        var result = await previewService.GetPreviewAsync(id, ct);
+        if (result.IsSuccess)
+        {
+            return Results.Ok(ExtractedTextPreviewDto.From(id, result));
+        }
+
+        var body = new ErrorDto(result.Error);
+        return result.FailureKind == TextPreviewFailureKind.NotFound
+            ? Results.NotFound(body)
+            : Results.Conflict(body);
     }
 }

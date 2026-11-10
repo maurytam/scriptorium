@@ -1,0 +1,27 @@
+<dialog
+  #dialog
+  class="text-popup"
+  aria-labelledby="text-popup-title"
+  (cancel)="close()"
+  (close)="onClosed()"
+  (click)="onBackdropClick($event)"
+>
+  @if (document(); as doc) {
+    <div class="text-popup-content">
+      <header class="text-popup-header">
+        <h2 id="text-popup-title">Extracted text of <span class="text-popup-document">{{ doc.fileName }}</span></h2>
+        <button type="button" class="secondary" (click)="close()">Close</button>
+      </header>
+
+      @if (loading()) {
+        <p class="text-popup-status" role="status">Loading…</p>
+      }
+      @if (errorMessage(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+      @if (preview(); as loaded) {
+        <pre class="text-popup-text">{{ loaded.content }}</pre>
+      }
+    </div>
+  }
+</dialog>

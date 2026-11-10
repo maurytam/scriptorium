@@ -53,3 +53,11 @@ export interface AskResponse {
 export interface AskLimits {
   maxQuestionLength: number;
 }
+
+/** The extracted text of a document, cut by the server at the limit the model reads. */
+export interface TextPreview {
+  documentId: string;
+  content: string;
+  truncated: boolean;
+  totalCharacters: number;
+}

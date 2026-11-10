@@ -8,6 +8,7 @@ import {
   AskResponse,
   DocumentDetails,
   DocumentSummary,
+  TextPreview,
   UploadEvent,
   UploadLimits,
   UploadedDocument,
@@ -50,6 +51,11 @@ export class DocumentApiService {
 
   ask(id: string, question: string, history: AskExchange[] = []): Observable<AskResponse> {
     return this.http.post<AskResponse>(`${DOCUMENTS_URL}/${id}/ask`, { question, history });
+  }
+
+  /** The extracted text of a ready document, already cut by the server; read-only. */
+  getTextPreview(id: string): Observable<TextPreview> {
+    return this.http.get<TextPreview>(`${DOCUMENTS_URL}/${id}/text/preview`);
   }
 
   getAskLimits(): Observable<AskLimits> {

@@ -4,6 +4,7 @@ import { Subject, of, throwError } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
 import { ConversationSelectionService } from '../ask/conversation-selection.service';
+import { TextPopupSelectionService } from '../text-popup/text-popup-selection.service';
 import { DocumentSummary } from '../document.models';
 import { DocumentListComponent } from './document-list.component';
 
@@ -268,6 +269,55 @@ describe('DocumentListComponent', () => {
       fixture.detectChanges();
 
       expect(askButtons(fixture).length).toBe(0);
+    });
+  });
+
+  describe('viewing the extracted text', () => {
+    const textButtons = (fixture: ReturnType<typeof create>) =>
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button[aria-label^="View extracted text of"]');
+
+    it('offers a Text button on ready rows only', () => {
+      api.list.and.returnValue(of([doc('done', 'ready'), doc('busy', 'processing'), doc('broken', 'failed')]));
+
+      const fixture = create();
+
+      const buttons = textButtons(fixture);
+      expect(buttons.length).toBe(1);
+      expect(buttons[0].textContent?.trim()).toBe('Text');
+      expect(buttons[0].getAttribute('aria-label')).toBe('View extracted text of done.pdf');
+      expect(buttons[0].closest('tr')?.textContent).toContain('done.pdf');
+    });
+
+    it('opens the popup for that document, passing the button so the focus can come back to it', () => {
+      api.list.and.returnValue(of([doc('a', 'ready'), doc('b', 'ready')]));
+      const popup = TestBed.inject(TextPopupSelectionService);
+      spyOn(popup, 'open');
+      const fixture = create();
+
+      const second = textButtons(fixture)[1];
+      second.click();
+
+      expect(popup.open).toHaveBeenCalledOnceWith(jasmine.objectContaining({ id: 'b' }), second);
+    });
+
+    it('does not open the question conversation', () => {
+      api.list.and.returnValue(of([doc('a', 'ready')]));
+      const conversation = TestBed.inject(ConversationSelectionService);
+      spyOn(conversation, 'open');
+      const fixture = create();
+
+      textButtons(fixture)[0].click();
+
+      expect(conversation.open).not.toHaveBeenCalled();
+      expect(conversation.document()).toBeNull();
+    });
+
+    it('keeps the Ask button next to it on a ready row', () => {
+      api.list.and.returnValue(of([doc('a', 'ready')]));
+
+      const fixture = create();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('button[aria-label="Ask about a.pdf"]')).not.toBeNull();
     });
   });
 });
