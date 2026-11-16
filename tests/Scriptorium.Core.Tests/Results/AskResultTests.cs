@@ -37,4 +37,18 @@ public class AskResultTests
         result.FailureKind.Should().Be(kind);
         result.Error.Should().Be("nope");
     }
+
+    [Fact]
+    public void Success_WithoutABackend_IsAnsweredLocally()
+    {
+        AskResult.Success("Paris", false).Backend.Should().Be(ModelBackend.Local);
+    }
+
+    [Theory]
+    [InlineData(ModelBackend.Local)]
+    [InlineData(ModelBackend.Cloud)]
+    public void Success_CarriesTheBackendThatAnswered(ModelBackend backend)
+    {
+        AskResult.Success("Paris", false, backend).Backend.Should().Be(backend);
+    }
 }

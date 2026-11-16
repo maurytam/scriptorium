@@ -234,9 +234,37 @@ public sealed class QuestionEndpointTests : IDisposable
         _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private async Task<Guid> ReadyDocumentAsync(string text)
+    // ---- routing (feature 005, user story 1): with the delivered settings the cloud is off ----
+
+    [Fact]
+    public async Task Ask_WithTheDeliveredSettings_IsAnsweredLocallyAndSaysSo()
     {
-        var id = await _host.UploadAcceptedAsync("notes.txt", SampleDocuments.Txt(text));
+        var id = await ReadyDocumentAsync("Maria Rossi signed the agreement.");
+
+        var response = await AskAsync(id, "Who signed?");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await ApiTestHost.ReadJsonAsync(response);
+        body.GetProperty("answer").GetString().Should().Be("Maria Rossi.");
+        body.GetProperty("backend").GetString().Should().Be("local");
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Ask_APrivateDocument_IsAnsweredLocallyWithTheSameResult()
+    {
+        var id = await ReadyDocumentAsync("Confidential: Maria Rossi signed.", isPrivate: "true");
+
+        var response = await AskAsync(id, "Who signed?");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("backend").GetString().Should().Be("local");
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private async Task<Guid> ReadyDocumentAsync(string text, string? isPrivate = null)
+    {
+        var id = await _host.UploadAcceptedAsync("notes.txt", SampleDocuments.Txt(text), isPrivate);
         (await _host.WaitForTerminalStatusAsync(id)).GetProperty("status").GetString().Should().Be("ready");
         return id;
     }

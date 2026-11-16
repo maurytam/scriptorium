@@ -24,7 +24,8 @@ public static class QuestionEndpoints
             return Results.BadRequest(new ErrorDto("Every earlier exchange needs a question and an answer."));
         }
 
-        var result = await questionService.AskAsync(id, body?.Question ?? string.Empty, history, ct);
+        // The preference is read from the request in the next step; until then every question is Auto.
+        var result = await questionService.AskAsync(id, body?.Question ?? string.Empty, history, ModelPreference.Auto, ct);
 
         return result.IsSuccess
             ? Results.Ok(AskResponseDto.From(result))

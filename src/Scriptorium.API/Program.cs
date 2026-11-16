@@ -23,6 +23,8 @@ var documentsPath = Path.GetFullPath(
 var maxSizeBytes = builder.Configuration.GetValue("Documents:MaxSizeBytes", DefaultMaxSizeBytes);
 var ollamaOptions = builder.Configuration.GetSection("Ollama").Get<OllamaOptions>() ?? new OllamaOptions();
 var qaOptions = builder.Configuration.GetSection("Qa").Get<QaOptions>() ?? new QaOptions();
+var routingOptions = builder.Configuration.GetSection("Routing").Get<RoutingOptions>() ?? new RoutingOptions();
+var anthropicOptions = builder.Configuration.GetSection("Anthropic").Get<AnthropicOptions>() ?? new AnthropicOptions();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails(); // required by UseExceptionHandler(); our handler always answers first
@@ -42,6 +44,11 @@ builder.Services.AddSingleton<IDocumentParser, TextDocumentParser>();
 builder.Services.AddSingleton(ollamaOptions);
 builder.Services.AddSingleton(qaOptions);
 builder.Services.AddSingleton<IAIProvider>(_ => OllamaProvider.Create(ollamaOptions));
+builder.Services.AddSingleton(routingOptions);
+builder.Services.AddSingleton(anthropicOptions);
+builder.Services.AddSingleton<ICloudAIProvider>(_ => ClaudeProvider.Create(anthropicOptions)); // off unless Routing:CloudEnabled and a key
+builder.Services.AddSingleton<ComplexityScorer>();
+builder.Services.AddSingleton<ModelRouter>();
 
 builder.Services.AddSingleton<DocumentProcessingQueue>();
 builder.Services.AddSingleton<IDocumentProcessingQueue>(sp => sp.GetRequiredService<DocumentProcessingQueue>());

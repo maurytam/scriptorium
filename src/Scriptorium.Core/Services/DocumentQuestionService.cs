@@ -9,24 +9,27 @@ namespace Scriptorium.Core.Services;
 public sealed class DocumentQuestionService
 {
     private readonly IDocumentRepository _repository;
-    private readonly IAIProvider _provider;
+    private readonly ModelRouter _router;
+    private readonly ComplexityScorer _scorer;
     private readonly QuestionPromptBuilder _promptBuilder;
     private readonly QaOptions _options;
 
     public DocumentQuestionService(
         IDocumentRepository repository,
-        IAIProvider provider,
+        ModelRouter router,
+        ComplexityScorer scorer,
         QuestionPromptBuilder promptBuilder,
         QaOptions options)
     {
         _repository = repository;
-        _provider = provider;
+        _router = router;
+        _scorer = scorer;
         _promptBuilder = promptBuilder;
         _options = options;
     }
 
     public async Task<AskResult> AskAsync(
-        Guid documentId, string question, IReadOnlyList<ChatExchange>? history, CancellationToken ct)
+        Guid documentId, string question, IReadOnlyList<ChatExchange>? history, ModelPreference preference, CancellationToken ct)
     {
         var trimmed = question.Trim();
         var invalid = ValidateQuestion(trimmed);
@@ -41,12 +44,36 @@ public sealed class DocumentQuestionService
             return AskResult.Failure(text.FailureKind, text.Error);
         }
 
-        var prompt = _promptBuilder.Build(text.Value, trimmed, history);
-        var answer = await _provider.CompleteAsync(prompt.Request, ct);
+        var route = Route(text.Value, text.IsPrivate, trimmed, history, preference);
+        return route.IsSuccess
+            ? await AnswerAsync(route.Provider, route.Backend.Value, text.Value, trimmed, history, ct)
+            : ToRoutingFailure(route.FailureKind.Value, route.Error);
+    }
+
+    private RoutingResult Route(
+        string documentText, bool isPrivate, string question, IReadOnlyList<ChatExchange>? history, ModelPreference preference)
+    {
+        var score = _scorer.Score(question, documentText.Length, history?.Count ?? 0);
+        return _router.Route(new RoutingRequest(isPrivate, preference, score.Value));
+    }
+
+    private async Task<AskResult> AnswerAsync(
+        IAIProvider provider, ModelBackend backend, string documentText, string question,
+        IReadOnlyList<ChatExchange>? history, CancellationToken ct)
+    {
+        var prompt = _promptBuilder.Build(documentText, question, history);
+        var answer = await provider.CompleteAsync(prompt.Request, ct);
         return answer.IsSuccess
-            ? AskResult.Success(answer.Text, prompt.Truncated)
+            ? AskResult.Success(answer.Text, prompt.Truncated, backend)
             : ToFailure(answer.FailureKind.Value, answer.Error);
     }
+
+    // The router words both refusals itself; a private document asked with Cloud is the one that is a conflict.
+    private static AskResult ToRoutingFailure(RoutingFailureKind kind, string error) => kind switch
+    {
+        RoutingFailureKind.PrivateDocumentCloudRefused => AskResult.Failure(AskFailureKind.PreferenceNotAllowed, error),
+        _ => AskResult.Failure(AskFailureKind.ModelUnavailable, error)
+    };
 
     // The provider words the two failures the user can act on; anything else stays generic, with no details.
     private static AskResult ToFailure(AiFailureKind kind, string error) => kind switch
@@ -86,19 +113,22 @@ public sealed class DocumentQuestionService
         var extracted = await _repository.GetExtractedTextAsync(documentId, ct);
         return extracted is null
             ? DocumentText.Failed(AskFailureKind.Internal, "The text of the document is not available.")
-            : DocumentText.Found(extracted.Content);
+            : DocumentText.Found(extracted.Content, document.IsPrivate);
     }
 
     private sealed class DocumentText
     {
-        private DocumentText(string? value, AskFailureKind failureKind, string? error)
+        private DocumentText(string? value, bool isPrivate, AskFailureKind failureKind, string? error)
         {
             Value = value;
+            IsPrivate = isPrivate;
             FailureKind = failureKind;
             Error = error;
         }
 
         public string? Value { get; }
+
+        public bool IsPrivate { get; }
 
         public AskFailureKind FailureKind { get; }
 
@@ -108,8 +138,8 @@ public sealed class DocumentQuestionService
         [System.Diagnostics.CodeAnalysis.MemberNotNullWhen(false, nameof(Error))]
         public bool IsSuccess => Value is not null;
 
-        public static DocumentText Found(string value) => new(value, default, null);
+        public static DocumentText Found(string value, bool isPrivate) => new(value, isPrivate, default, null);
 
-        public static DocumentText Failed(AskFailureKind kind, string error) => new(null, kind, error);
+        public static DocumentText Failed(AskFailureKind kind, string error) => new(null, false, kind, error);
     }
 }

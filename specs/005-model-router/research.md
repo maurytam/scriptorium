@@ -53,6 +53,29 @@ fake `HttpMessageHandler` that returns a canned reply and fails the test if it i
 off. Which of the two is possible depends on the library's public surface, which is **checked when the package is added**
 (task), not guessed now. In both cases no test reaches the network.
 
+**Outcome of the check (T014, 2026-11-16, read from the library's XML documentation and the names in its binary; nothing was
+run)**: the library accepts a custom `HttpClient` (`ClientOptions.HttpClient`), so the **fake `HttpMessageHandler`** way is
+used: the real library code runs against canned replies and no test reaches the network. A small extra interface is not
+needed. Facts that shape `ClaudeProvider`:
+
+- **The key defaults to the `ANTHROPIC_API_KEY` environment variable** when none is given. The provider therefore creates the
+  client **lazily and only when `Anthropic:ApiKey` has a value**, and passes that value explicitly, so a key that happens to
+  exist in the owner's shell is never used (this is the point U2 of the analysis).
+- The library's own timeout defaults to 10 minutes and it **retries** connection errors, timeouts, `408`, `409`, `429` and
+  `5xx`. The provider sets the timeout to `Anthropic:TimeoutSeconds` and `MaxRetries` to 0, so a question is one request.
+- A custom `HttpClient` has its own 100-second timeout that can cut a request short: the provider gives it an infinite one, as
+  `OllamaProvider` does, and enforces the configured timeout itself.
+- Failures: `AnthropicException` is the base type, with `AnthropicIOException` (connection) and `AnthropicApiException` (an HTTP
+  error status); a timeout is a `TaskCanceledException`. The mapping is: connection problems and `401`/`403` →
+  `Unavailable`; a timeout while the caller did not cancel → `Timeout`; any other library failure or an empty reply →
+  `Failed`.
+- The exact members used to build the request (`Messages.Create`, `MessageCreateParams`) are confirmed when `ClaudeProvider` is
+  compiled (T017).
+
+The claim "the single line that calls the real service was never run" stays true but is narrower than first thought: the
+library's request, parsing and error handling **are** exercised against canned replies; only the real network exchange and the
+real credentials are not.
+
 **What this cannot prove** (said openly): the line that calls the real service is compiled and unit-tested up to the seam, but
 it runs for real only the day the owner switches the cloud on with a key. That is the price of spending nothing, and the
 quickstart says so.
@@ -116,17 +139,19 @@ Anthropic. Approved by the user on 2026-11-16 on the condition that it is free.
 | Cost | The library is free. Only *calls to the service* are paid, and none is ever made while the cloud is off |
 | Targets | `net8.0`, `net9.0`, `netstandard2.0` (a `net10.0` project uses the `net9.0` set) |
 
-**What it brings in (for the `net9.0` set a `net10.0` project resolves)**:
+**What it brings in (checked on 2026-11-16 after adding the package to the project)**: **nothing that was not already there.**
+The package manifest lists `Microsoft.Extensions.AI.Abstractions` 10.5.1, `System.Net.ServerSentEvents` 10.0.1 and
+`System.Text.Json` 10.0.6, but on this project:
 
-| Dependency | Version | Note |
-|---|---|---|
-| `Microsoft.Extensions.AI.Abstractions` | 10.5.1 | Microsoft's AI abstractions |
-| `System.Net.ServerSentEvents` | 10.0.1 | Microsoft |
-| `System.Text.Json` | 10.0.6 | Microsoft; already part of .NET 10, NuGet may only align the version |
+| Dependency | What really happens |
+|---|---|
+| `Microsoft.Extensions.AI.Abstractions` | Resolved to **10.8.0**, which was **already** in the solution through `OllamaSharp` 5.5.0; `Anthropic` reuses it |
+| `Microsoft.Extensions.AI` | 10.8.0, already there through `OllamaSharp`; not brought by `Anthropic` |
+| `System.Net.ServerSentEvents`, `System.Text.Json` | Not added as packages: .NET 10 provides them in the framework |
 
-The exact list that the restore produces is read with `dotnet list package --include-transitive` right after the package is
-added and compared with this table. **Nothing else is added without asking** (constitution, non-negotiable constraints). No npm
-package.
+The list of transitive packages is the one of before plus `Anthropic` itself. `dotnet list ... --include-transitive` and
+`dotnet nuget why` were used for the check; `git diff` shows one changed line, in `Scriptorium.Infrastructure.csproj`. **Nothing
+else is added without asking** (constitution, non-negotiable constraints). No npm package.
 
 **Alternatives rejected**: `Anthropic.SDK` (unofficial); writing the HTTP calls by hand (forbidden outside a provider and more
 code to keep).

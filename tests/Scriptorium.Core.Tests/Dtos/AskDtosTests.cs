@@ -19,6 +19,17 @@ public class AskDtosTests
         dto.Should().Be(new AskResponseDto("Paris", truncated));
     }
 
+    [Theory]
+    [InlineData(ModelBackend.Local, "local")]
+    [InlineData(ModelBackend.Cloud, "cloud")]
+    public void AskResponseDto_From_SaysWhichBackendAnswered(ModelBackend backend, string expected)
+    {
+        var dto = AskResponseDto.From(AskResult.Success("Paris", false, backend));
+
+        dto.Backend.Should().Be(expected);
+        dto.Should().Be(new AskResponseDto("Paris", false, expected));
+    }
+
     [Fact]
     public void AskResponseDto_From_AFailedResultYieldsAnEmptyAnswer()
     {
