@@ -12,7 +12,8 @@
 
     @if (transcript().length === 0 && !waiting()) {
       <p class="ask-hint">
-        Ask anything about this document. Answers come only from its text and are produced on your computer.
+        Ask anything about this document. Answers come only from its text. They are worked out on your computer,
+        unless Cloud is chosen or Auto picks it for a complex question.
       </p>
     }
 
@@ -27,6 +28,7 @@
               </p>
             }
             <p class="answer">{{ exchange.answer }}</p>
+            <p class="backend">{{ backendLabel(exchange) }}</p>
           </li>
         }
       </ol>
@@ -55,7 +57,17 @@
         (input)="onInput($event)"
         (keydown.enter)="onEnter($event)"
       ></textarea>
-      <button type="submit" [disabled]="!canSend()">Send</button>
+      <div class="ask-send">
+        <label class="preference">
+          <span>Answer with</span>
+          <select aria-label="Answer with" [value]="preference()" (change)="onPreferenceChange($event)">
+            <option value="auto" [selected]="preference() === 'auto'">Auto</option>
+            <option value="local" [selected]="preference() === 'local'">Local</option>
+            <option value="cloud" [selected]="preference() === 'cloud'">Cloud</option>
+          </select>
+        </label>
+        <button type="submit" [disabled]="!canSend()">Send</button>
+      </div>
       @if (maxQuestionLength(); as max) {
         <p class="char-counter" [class.over]="tooLong()" aria-live="polite">
           {{ questionLength() }} / {{ max }}

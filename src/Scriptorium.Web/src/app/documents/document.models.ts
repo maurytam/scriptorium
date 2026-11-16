@@ -45,9 +45,14 @@ export interface AskExchange {
   answer: string;
 }
 
+/** Which model the person wants to answer; Auto lets the server decide. Sent with every question. */
+export type AskPreference = 'auto' | 'local' | 'cloud';
+
 export interface AskResponse {
   answer: string;
   truncated: boolean;
+  /** Which model produced the answer: the one on this computer or the cloud one. */
+  backend: 'local' | 'cloud';
 }
 
 export interface AskLimits {

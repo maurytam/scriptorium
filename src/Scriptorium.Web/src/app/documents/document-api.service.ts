@@ -5,6 +5,7 @@ import { Observable, Subject, filter, map, switchMap, take, timer } from 'rxjs';
 import {
   AskExchange,
   AskLimits,
+  AskPreference,
   AskResponse,
   DocumentDetails,
   DocumentSummary,
@@ -49,8 +50,13 @@ export class DocumentApiService {
     return this.http.delete<void>(`${DOCUMENTS_URL}/${id}`);
   }
 
-  ask(id: string, question: string, history: AskExchange[] = []): Observable<AskResponse> {
-    return this.http.post<AskResponse>(`${DOCUMENTS_URL}/${id}/ask`, { question, history });
+  ask(
+    id: string,
+    question: string,
+    history: AskExchange[] = [],
+    preference: AskPreference = 'auto',
+  ): Observable<AskResponse> {
+    return this.http.post<AskResponse>(`${DOCUMENTS_URL}/${id}/ask`, { question, history, preference });
   }
 
   /** The extracted text of a ready document, already cut by the server; read-only. */

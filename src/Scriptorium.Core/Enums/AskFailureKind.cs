@@ -7,5 +7,8 @@ public enum AskFailureKind
     NotReady,
     ModelUnavailable,
     Timeout,
-    Internal
+    Internal,
+
+    /// <summary>The preference cannot be used for this document (Cloud for a private one).</summary>
+    PreferenceNotAllowed
 }
