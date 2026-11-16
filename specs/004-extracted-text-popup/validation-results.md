@@ -25,4 +25,19 @@ How the results were obtained:
 Automated tests at the end of User Story 1: backend 117 (Core) + 187 (Infrastructure) passing, 0 build warnings; frontend 129 passing
 (Karma, headless Chrome); `npm run build` without warnings; no `.csproj`, `package.json` or `package-lock.json` changed.
 
-Not yet covered: scenarios 6, 7 and 8 (long texts and failure while loading, User Story 2) and the final run (scenario 10).
+## User Story 2: a long text is cut and says so (2026-11-16)
+
+Tried by the user with the real API (port 5034, rebuilt with the User Story 2 code), the Angular app and Ollama (`qwen3.5:4b`). The user
+reported that every expected result was obtained; the exact observations were not recorded one by one.
+
+| Scenario | File | Result | Seen by |
+|---|---|---|---|
+| 6. Long text is cut and says so | `text-long.txt` (20,458 characters, very long line without spaces, final code ZEBRA-4471) | Note `Showing the first 8,000 of 20,458 characters.`; text starts at the beginning of the file and stops before the final code; the long line wraps inside the popup; the text scrolls inside the popup; the page behind does not scroll; no note on a short document (`facts.txt`) | User |
+| 7. Same cut as the model reads | `text-long.txt` | The answer about the final code carries feature 002's cutting notice; the popup stops where the model's reading stops and does not show the final code | User |
+| 8. Failure while loading | a ready document deleted from another tab, then **Text** clicked on the still displayed row | Popup says `The text is not available.`, can be closed, the list is not broken | User |
+| 11. Endpoint (rest) | `text-long.txt`, `facts.txt`, unknown id, deleted document | Long text: `200`, `truncated: true`, `totalCharacters: 20458`, `content` of 8,000 characters. Short text: `200`, `truncated: false`, 546 of 546. Unknown id and deleted document: `404`. `409` (not ready) was seen in the User Story 1 run on a failed document and is also covered by `GetTextPreview_FailedDocument_ReturnsConflictNamingTheStatus`; a document still processing was not reproduced by hand | Claude |
+
+Checks on the endpoint were made on a throwaway API (port 5099, database in the scratchpad, stopped afterwards by its own PID); the
+user's API on 5034 was not touched.
+
+Not yet covered: the final run (scenario 10) and the automated tests at the end of the feature.

@@ -20,6 +20,11 @@
         <p class="error" role="alert">{{ message }}</p>
       }
       @if (preview(); as loaded) {
+        @if (loaded.truncated) {
+          <p class="text-popup-notice" role="note">
+            Showing the first {{ loaded.content.length | number }} of {{ loaded.totalCharacters | number }} characters.
+          </p>
+        }
         <pre class="text-popup-text">{{ loaded.content }}</pre>
       }
     </div>

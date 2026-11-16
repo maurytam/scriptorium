@@ -96,6 +96,33 @@ describe('TextPopupComponent', () => {
     expect(root().querySelector('textarea, input, [contenteditable]')).toBeNull();
   });
 
+  describe('when the text was cut by the server', () => {
+    const cut = (shownCharacters: number, total: number) =>
+      preview('report', 'x'.repeat(shownCharacters), { truncated: true, totalCharacters: total });
+
+    it('says how many characters are shown out of the total, above the text', () => {
+      show(doc('report'), of(cut(7999, 52310)));
+
+      const note = root().querySelector('[role="note"]') as HTMLElement;
+      expect(note.textContent?.trim()).toBe('Showing the first 7,999 of 52,310 characters.');
+      expect(note.compareDocumentPosition(textArea() as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(textArea()?.textContent).toHaveSize(7999);
+    });
+
+    it('says nothing about cutting once a text that was not cut is opened', () => {
+      api.getTextPreview.and.callFake((id: string) => of(id === 'a' ? cut(8000, 9000) : preview('b', 'whole text')));
+
+      selection.open(doc('a'));
+      settle();
+      expect(root().querySelector('[role="note"]')).not.toBeNull();
+
+      selection.open(doc('b'));
+      settle();
+      expect(root().querySelector('[role="note"]')).toBeNull();
+      expect(textArea()?.textContent).toBe('whole text');
+    });
+  });
+
   describe('when the text cannot be loaded', () => {
     it('shows the server message of a conflict', () => {
       const error = new HttpErrorResponse({

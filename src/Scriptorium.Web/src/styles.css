@@ -661,6 +661,15 @@ body:has(dialog.text-popup[open]) {
   color: var(--muted);
 }
 
+.text-popup-notice {
+  margin: 0;
+  padding: 0.65rem 0.9rem;
+  color: var(--wait-ink);
+  font-size: 0.9rem;
+  background: var(--wait-bg);
+  border-radius: var(--radius);
+}
+
 .text-popup-text {
   flex: 1 1 auto;
   min-height: 0;

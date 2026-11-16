@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
@@ -11,6 +12,7 @@ const NOT_AVAILABLE = 'The text is not available.';
 /** Read-only popup with the extracted text of the selected document, as the server sends it (already cut). */
 @Component({
   selector: 'app-text-popup',
+  imports: [DecimalPipe],
   templateUrl: './text-popup.component.html',
 })
 export class TextPopupComponent {

@@ -107,16 +107,16 @@ Paths per `plan.md`: `src/Scriptorium.Core/`, `src/Scriptorium.API/`, `src/Scrip
 
 ### Tests for User Story 2 (write first, they must fail) ⚠️
 
-- [ ] T027 [P] [US2] Extend `src/Scriptorium.Web/src/app/documents/text-popup/text-popup.component.spec.ts`: a preview with `truncated: true`, `content` of 7,999 characters and `totalCharacters: 52310` shows the note `Showing the first 7,999 of 52,310 characters.` (shown number = `content.length`, thousands separators) above the text; a preview with `truncated: false` shows no such note; the note disappears when another, uncut document is opened; the note has `role="note"`
+- [X] T027 [P] [US2] Extend `src/Scriptorium.Web/src/app/documents/text-popup/text-popup.component.spec.ts`: a preview with `truncated: true`, `content` of 7,999 characters and `totalCharacters: 52310` shows the note `Showing the first 7,999 of 52,310 characters.` (shown number = `content.length`, thousands separators) above the text; a preview with `truncated: false` shows no such note; the note disappears when another, uncut document is opened; the note has `role="note"`
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Add the notice to `src/Scriptorium.Web/src/app/documents/text-popup/text-popup.component.html`: when `preview().truncated`, a `<p role="note">` above the text reading `Showing the first {{ preview().content.length | number }} of {{ preview().totalCharacters | number }} characters.` (import `DecimalPipe` in the component); style it in `src/Scriptorium.Web/src/styles.css` like the existing `notice` of the question panel. No computing beyond `content.length`
-- [ ] T029 [US2] Run, in `src/Scriptorium.Web`, `npm test -- --watch=false --browsers=ChromeHeadless` and `npm run build`: T027 passes and everything else is still green
+- [X] T028 [US2] Add the notice to `src/Scriptorium.Web/src/app/documents/text-popup/text-popup.component.html`: when `preview().truncated`, a `<p role="note">` above the text reading `Showing the first {{ preview().content.length | number }} of {{ preview().totalCharacters | number }} characters.` (import `DecimalPipe` in the component); style it in `src/Scriptorium.Web/src/styles.css` like the existing `notice` of the question panel. No computing beyond `content.length`
+- [X] T029 [US2] Run, in `src/Scriptorium.Web`, `npm test -- --watch=false --browsers=ChromeHeadless` and `npm run build`: T027 passes and everything else is still green
 
 ### Manual check for User Story 2
 
-- [ ] T030 [US2] Add to `~/Desktop/prove-scriptorium` a `text-long.txt` of more than 8,000 characters (fake, different from the others). With the user: run quickstart scenarios 6 (including the long-lines and page-scroll checks), 7 (needs Ollama and `qwen3.5:4b`), 8 and 11, and wait for the user's OK before anything is committed; record the outcome in `specs/004-extracted-text-popup/validation-results.md`
+- [x] T030 [US2] Add to `~/Desktop/prove-scriptorium` a `text-long.txt` of more than 8,000 characters (fake, different from the others). With the user: run quickstart scenarios 6 (including the long-lines and page-scroll checks), 7 (needs Ollama and `qwen3.5:4b`), 8 and 11, and wait for the user's OK before anything is committed; record the outcome in `specs/004-extracted-text-popup/validation-results.md`
 
 **Checkpoint**: Both stories work; a cut text always says so and a whole text never does
 
