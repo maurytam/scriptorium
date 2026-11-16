@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 
 import { DocumentApiService } from './document-api.service';
-import { AskResponse, DocumentDetails, DocumentSummary, UploadEvent } from './document.models';
+import { AskResponse, DocumentDetails, DocumentSummary, TextPreview, UploadEvent } from './document.models';
 
 const details = (status: DocumentDetails['status']): DocumentDetails => ({
   id: 'abc',
@@ -206,4 +206,21 @@ describe('DocumentApiService', () => {
     expect(emitted[0].failureReason).toBe('bad pdf');
     discardPeriodicTasks();
   }));
+
+  it('asks for the text preview of a document', () => {
+    const preview: TextPreview = {
+      documentId: 'abc',
+      content: 'first part',
+      truncated: true,
+      totalCharacters: 52310,
+    };
+    let received: TextPreview | undefined;
+
+    service.getTextPreview('abc').subscribe((p) => (received = p));
+
+    const request = http.expectOne('/api/documents/abc/text/preview');
+    expect(request.request.method).toBe('GET');
+    request.flush(preview);
+    expect(received).toEqual(preview);
+  });
 });

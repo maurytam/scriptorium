@@ -58,6 +58,14 @@
                   @if (document.status === 'ready') {
                     <button
                       type="button"
+                      class="secondary text-button"
+                      [attr.aria-label]="'View extracted text of ' + document.fileName"
+                      (click)="viewText(document, $event)"
+                    >
+                      Text
+                    </button>
+                    <button
+                      type="button"
                       class="secondary ask-button"
                       [attr.aria-label]="'Ask about ' + document.fileName"
                       (click)="ask(document)"

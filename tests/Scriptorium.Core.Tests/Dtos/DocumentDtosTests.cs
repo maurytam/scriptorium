@@ -2,6 +2,7 @@ using FluentAssertions;
 using Scriptorium.Core.Dtos;
 using Scriptorium.Core.Entities;
 using Scriptorium.Core.Enums;
+using Scriptorium.Core.Results;
 
 namespace Scriptorium.Core.Tests.Dtos;
 
@@ -57,5 +58,28 @@ public class DocumentDtosTests
         var dto = ExtractedTextDto.From(text);
 
         dto.Should().BeEquivalentTo(text);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExtractedTextPreviewDto_From_CopiesTheDocumentAndTheSuccessfulResult(bool truncated)
+    {
+        var id = Guid.NewGuid();
+        var result = TextPreviewResult.Success("abc", truncated, 52310);
+
+        var dto = ExtractedTextPreviewDto.From(id, result);
+
+        dto.Should().Be(new ExtractedTextPreviewDto(id, "abc", truncated, 52310));
+    }
+
+    [Fact]
+    public void ExtractedTextPreviewDto_From_AFailedResult_IsAProgrammingError()
+    {
+        var failed = TextPreviewResult.Failure(TextPreviewFailureKind.NotFound, "nope");
+
+        var act = () => ExtractedTextPreviewDto.From(Guid.NewGuid(), failed);
+
+        act.Should().Throw<InvalidOperationException>();
     }
 }

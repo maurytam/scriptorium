@@ -42,6 +42,9 @@ something you can question, summarize and mine for entities.
   "file firmato con firma digitale", followed by the signer's name when the file gives one (from the signature's
   name field or its certificate, otherwise "firmatario sconosciuto") and by the signing date and time, so you can ask who
   signed and when. The name is reported as the file declares it, with no validity check.
+- 👁 **Shows the extracted text.** A ready document has a **Text** button that opens a read-only popup with the
+  extracted text, cut at the same limit the model reads, and it says so ("Showing the first 8,000 of … characters")
+  when the text is longer.
 - 🏠 **Runs on your machine.** Questions and document text go only to the local [Ollama](https://ollama.com)
   server, nothing leaves your computer.
 

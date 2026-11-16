@@ -1,4 +1,5 @@
 using Scriptorium.Core.Entities;
+using Scriptorium.Core.Results;
 
 namespace Scriptorium.Core.Dtos;
 
@@ -62,6 +63,15 @@ public sealed record DocumentSummaryDto(
 public sealed record ExtractedTextDto(Guid DocumentId, string Content, DateTimeOffset ExtractedAt)
 {
     public static ExtractedTextDto From(ExtractedText text) => new(text.DocumentId, text.Content, text.ExtractedAt);
+}
+
+/// <summary>The extracted text of a document, cut at the preview limit (see <see cref="TextPreviewResult"/>).</summary>
+public sealed record ExtractedTextPreviewDto(Guid DocumentId, string Content, bool Truncated, int TotalCharacters)
+{
+    public static ExtractedTextPreviewDto From(Guid documentId, TextPreviewResult result) =>
+        result.IsSuccess
+            ? new ExtractedTextPreviewDto(documentId, result.Content, result.Truncated, result.TotalCharacters)
+            : throw new InvalidOperationException("Only a successful preview can be mapped to a response.");
 }
 
 public sealed record ErrorDto(string Error);

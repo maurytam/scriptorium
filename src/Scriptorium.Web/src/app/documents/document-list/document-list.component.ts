@@ -7,6 +7,7 @@ import { EMPTY, Observable, catchError, expand, merge, of, switchMap, timer } fr
 import { ConversationSelectionService } from '../ask/conversation-selection.service';
 import { DocumentApiService } from '../document-api.service';
 import { DocumentSummary } from '../document.models';
+import { TextPopupSelectionService } from '../text-popup/text-popup-selection.service';
 
 const POLL_INTERVAL_MS = 2000;
 
@@ -19,6 +20,7 @@ export class DocumentListComponent {
   private readonly api = inject(DocumentApiService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly selection = inject(ConversationSelectionService);
+  private readonly textPopup = inject(TextPopupSelectionService);
 
   readonly documents = signal<DocumentSummary[]>([]);
   readonly loaded = signal(false);
@@ -41,6 +43,10 @@ export class DocumentListComponent {
 
   ask(document: DocumentSummary): void {
     this.selection.open(document);
+  }
+
+  viewText(document: DocumentSummary, event: Event): void {
+    this.textPopup.open(document, event.currentTarget as HTMLElement); // the button, so the focus can come back to it
   }
 
   askDelete(id: string): void {

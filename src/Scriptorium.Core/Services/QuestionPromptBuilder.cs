@@ -26,7 +26,7 @@ public sealed class QuestionPromptBuilder
 
     public QuestionPrompt Build(string documentText, string question, IReadOnlyList<ChatExchange>? history = null)
     {
-        var (text, truncated) = FitToBudget(documentText);
+        var (text, truncated, _) = TextExcerpt.Of(documentText, _options.MaxDocumentCharacters);
         var messages = new List<AiMessage>
         {
             new(AiRole.System, $"{Instructions}\n\n<document>\n{Neutralize(text)}\n{ClosingTag}")
@@ -62,22 +62,6 @@ public sealed class QuestionPromptBuilder
 
         kept.Reverse();
         return kept;
-    }
-
-    private (string Text, bool Truncated) FitToBudget(string text)
-    {
-        if (text.Length <= _options.MaxDocumentCharacters)
-        {
-            return (text, false);
-        }
-
-        var cut = _options.MaxDocumentCharacters;
-        if (cut > 0 && char.IsHighSurrogate(text[cut - 1]))
-        {
-            cut--; // never end on half of a character
-        }
-
-        return (text[..cut], true);
     }
 
     // A document must not be able to close the tag that fences it off from the instructions.

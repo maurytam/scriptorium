@@ -601,10 +601,88 @@ textarea:disabled {
   cursor: not-allowed;
 }
 
-.documents td.actions .ask-button {
+.documents td.actions .ask-button,
+.documents td.actions .text-button {
   margin-right: 0.4rem;
   padding: 0.3rem 0.8rem;
   font-size: 0.85rem;
+}
+
+/* ---------- Extracted text popup ---------- */
+dialog.text-popup {
+  box-sizing: border-box;
+  width: min(60rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 0;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+dialog.text-popup::backdrop {
+  background: rgb(35 32 43 / 55%);
+}
+
+/* The page behind the popup must not scroll. */
+body:has(dialog.text-popup[open]) {
+  overflow: hidden;
+}
+
+.text-popup-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-sizing: border-box;
+  max-height: calc(100vh - 2rem);
+  padding: 1.5rem;
+}
+
+.text-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.text-popup-header h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  overflow-wrap: anywhere;
+}
+
+.text-popup-document {
+  color: var(--accent);
+}
+
+.text-popup-status {
+  margin: 0;
+  color: var(--muted);
+}
+
+.text-popup-notice {
+  margin: 0;
+  padding: 0.65rem 0.9rem;
+  color: var(--wait-ink);
+  font-size: 0.9rem;
+  background: var(--wait-bg);
+  border-radius: var(--radius);
+}
+
+.text-popup-text {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0.9rem 1rem;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
 }
 
 /* ---------- Badges ---------- */

@@ -56,6 +56,7 @@ builder.Services.AddSingleton(sp => new DocumentUploadService(
 builder.Services.AddSingleton<DocumentDeletionService>();
 builder.Services.AddSingleton<QuestionPromptBuilder>();
 builder.Services.AddSingleton<DocumentQuestionService>();
+builder.Services.AddSingleton<DocumentTextPreviewService>();
 builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = maxSizeBytes + DocumentEndpoints.MultipartOverheadBytes);
 
