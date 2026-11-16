@@ -54,3 +54,24 @@ The log of the throwaway API has no mention of the cloud service. The user confi
 
 Automated tests at the end of User Story 3: backend 269 (Core) + 233 (Infrastructure) passing, 0 build warnings. The stand-in cloud
 (a mock `ICloudAIProvider`) proves the cloud-on cases; no test uses a key or the network. No production file changed in this phase.
+
+## Final run: scenarios 8, 9 and 10, and the overview (2026-11-16)
+
+| Scenario | Result |
+|---|---|
+| 1, 2 (User Story 1) | See above: normal and private documents answered locally, `"backend":"local"` |
+| 3, 4, 5, 6 (User Story 2) | See above: Cloud while off gives `503`, Cloud on a private document gives `409`, the selector starts from Auto, the endpoint follows the contract |
+| 7 (User Story 3) | See above: with the cloud on and no key, Cloud gives `503` and Auto with a complex question is answered locally |
+| 8. Decision table and stand-in cloud | `ModelRouterTests` runs the whole table of `data-model.md` (private × preference × cloud off, on, on without a key × score below, at and above the threshold); `ComplexityScorerTests` covers the five signals, the fixed word list of 14 entries and the examples of the spec; the cloud-on cases use a stand-in `ICloudAIProvider` at service and endpoint level, including `503`/`504` with no fallback. No test uses a key or the network |
+| 9. No regression | Backend: 269 (Core) + 233 (Infrastructure) passing, baseline 117 + 187. Frontend: 143 passing, baseline 131. `dotnet build` 0 warnings, 0 errors; `npm run build` without warnings. In the existing tests only the set-up line and the `AskAsync` calls (and, in the web specs, the new fourth `ask` argument `'auto'` and `preference: 'auto'` in the expected body) changed; no assertion was removed or loosened. `dotnet list package --include-transitive`: `Anthropic` 13.8.0 is the only new reference; `Microsoft.Extensions.AI` and `.Abstractions` 10.8.0 already came with `OllamaSharp` 5.5.0 (research R4). Only `Scriptorium.Infrastructure.csproj` changed among the project files; no `package.json` or `package-lock.json` changed |
+| 10. No secret, no spend | `git grep -nIE 'sk-ant-\|ApiKey' -- ':!specs' ':!docs' ':!*.md'` finds only code that reads the key option, the tests that use no key or the fake `test-key-not-real`; no key value anywhere. `appsettings.json` has `"CloudEnabled": false` and no `ApiKey` (a test checks it) |
+
+Review against the constitution (T045): `ModelRouter` is the only place that chooses between local and cloud (the only other mention of
+`ModelBackend` is the DTO mapping it to the text `local` or `cloud`); `HttpClient` appears only in `OllamaProvider` and `ClaudeProvider`;
+no Ollama and no cloud code in the same class; the scorer receives the question and two numbers, never the document text; no method of
+the changed files reaches 30 lines; no `!` without a comment, no `.Result` or `.Wait()`, no `dynamic` or reflection.
+
+**What was never run:** the single line that calls the real cloud service (`Messages.Create` of the `Anthropic` library through
+`ClaudeProvider`). It was never run against the real service: the tests exercise the library's own code against canned HTTP replies, and
+the cloud-on cases use a stand-in. No key exists anywhere and nothing was sent to the cloud. The first live answer from the cloud is not
+verified, and the default model id (`claude-sonnet-4-20250514`) must be checked before the cloud is ever switched on.

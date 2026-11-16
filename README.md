@@ -29,7 +29,8 @@ something you can question, summarize and mine for entities.
 - ⚙️ **Extracts the text in the background.** Every document moves from *processing* to *ready*,
   or to *failed* with a human-readable reason (encrypted PDF, corrupted file, no extractable text…).
 - 🗂 **Keeps the original and the text apart:** the file stays on disk, the extracted text lives in the database.
-- 🔒 **Private flag** per document. It is stored now and will force the local model once routing exists.
+- 🔒 **Private flag** per document. A private document is always answered by the local model: it never reaches the cloud,
+  whatever the preference or the settings.
 - ♻️ **Rejects duplicates** by content (SHA-256), even when the file was renamed, and tells you which document it matches.
 - 🗑 **Deletes documents** (record, extracted text and file) with a confirmation in the row.
 - 📊 **Live list** that refreshes while documents are processing, with a progress bar during upload,
@@ -45,8 +46,12 @@ something you can question, summarize and mine for entities.
 - 👁 **Shows the extracted text.** A ready document has a **Text** button that opens a read-only popup with the
   extracted text, cut at the same limit the model reads, and it says so ("Showing the first 8,000 of … characters")
   when the text is longer.
-- 🏠 **Runs on your machine.** Questions and document text go only to the local [Ollama](https://ollama.com)
-  server, nothing leaves your computer.
+- 🔀 **Chooses the model for each question.** A small **Answer with** selector offers **Auto** (the default), **Local** and
+  **Cloud**, and every answer says where it came from ("Answered on this computer" or "Answered by the cloud model").
+  Auto sends a question to the cloud only when it looks demanding (a simple, explainable score) **and** the cloud is switched on.
+  Cloud chosen while the cloud is off, or for a private document, gives a clear message and nothing is sent anywhere.
+- 🏠 **Runs on your machine.** With the settings you get out of the box the cloud is **off**: questions and document text go
+  only to the local [Ollama](https://ollama.com) server, nothing leaves your computer and nothing costs anything.
 
 ## 🗺 Roadmap
 
@@ -56,7 +61,7 @@ something you can question, summarize and mine for entities.
 | ✅ | Ask questions about a document | Done |
 | ⬜ | Summaries | Planned |
 | ⬜ | Entity extraction | Planned |
-| ⬜ | Model router: private documents → local **Ollama**, complex tasks → **Claude API**, manual override | Planned |
+| ✅ | Model router: private documents → local **Ollama**, complex tasks → **Claude API**, manual override | Done; the cloud side is built but **off by default** and has never called the real service |
 | ⬜ | Docker Compose setup (with an Ollama service) | Planned |
 
 Scriptorium is single-user and local-first: no authentication, no multi-tenancy, no cloud storage.
@@ -106,9 +111,19 @@ Relative paths are resolved from the API project folder, and `App_Data/` is git-
 | `Qa:MaxDocumentCharacters` | `8000` | How much of the document is sent to the model; the rest is left out |
 | `Qa:MaxHistoryExchanges` | `10` | Most recent earlier question/answer pairs kept in a conversation |
 | `Qa:MaxHistoryCharacters` | `3000` | Cap on the characters of the kept history; the oldest pairs are dropped first |
+| `Routing:CloudEnabled` | `false` | Switches the cloud model on. Off, every question is answered locally and choosing Cloud gives an error |
+| `Routing:ComplexityThreshold` | `2` | With **Auto**, a question goes to the cloud only when its complexity score (0 to 5) is **above** this value |
+| `Anthropic:ApiKey` | *(none)* | The cloud key. Set it only with `dotnet user-secrets` or an environment variable, **never in a file of the repository**. Without a key the cloud counts as not available |
+| `Anthropic:Model` | `claude-sonnet-4-20250514` | Cloud model. Check that the id is still valid before ever switching the cloud on |
+| `Anthropic:TimeoutSeconds` | `120` | How long to wait for the cloud before giving up |
+| `Anthropic:MaxTokens` | `1024` | Longest answer asked of the cloud model |
 
 Any key can also be set with an environment variable, using `__` for the colon (for example
 `Ollama__Model=qwen3.5:9b`), or with `dotnet user-secrets` during development.
+
+**The cloud is off.** Switching it on later is configuration only: `Routing:CloudEnabled=true` plus a key set with
+`dotnet user-secrets set "Anthropic:ApiKey" "<your-key>" --project src/Scriptorium.API`. Both are needed: switched on without a key,
+the cloud is still treated as not available. Using it costs money on your Anthropic account, which is why it is off.
 
 ## 🔌 API
 
@@ -121,18 +136,19 @@ Any key can also be set with an environment variable, using `__` for the colon (
 | `GET` | `/api/documents/{id}/text/preview` | The extracted text cut at the limit the model reads: `content`, `truncated`, `totalCharacters` (`404` unknown document, `409` until it is ready) |
 | `DELETE` | `/api/documents/{id}` | Delete a document (`409` while it is still processing) |
 | `GET` | `/api/documents/limits` | Upload limits enforced by the server |
-| `POST` | `/api/documents/{id}/ask` | Ask a question about a ready document (JSON: `question`, optional `history` of earlier exchanges). `200` with `answer` and `truncated`, or `400` invalid question, `404` unknown document, `409` document not ready, `503` Ollama or the model not available, `504` no answer in time |
+| `POST` | `/api/documents/{id}/ask` | Ask a question about a ready document (JSON: `question`, optional `history` of earlier exchanges, optional `preference`: `auto`, `local` or `cloud`). `200` with `answer`, `truncated` and `backend` (`local` or `cloud`), or `400` invalid question or preference, `404` unknown document, `409` document not ready or Cloud chosen for a private document, `503` the model (Ollama, or the cloud when chosen) not available, `504` no answer in time |
 | `GET` | `/api/documents/ask/limits` | Longest accepted question, from `Qa:MaxQuestionLength` (the web page uses it for its character counter) |
 
-The full contracts are in [`specs/001-document-upload-parsing/contracts/documents-api.md`](specs/001-document-upload-parsing/contracts/documents-api.md)
-and [`specs/002-ask-document-questions/contracts/ask-api.md`](specs/002-ask-document-questions/contracts/ask-api.md).
+The full contracts are in [`specs/001-document-upload-parsing/contracts/documents-api.md`](specs/001-document-upload-parsing/contracts/documents-api.md),
+[`specs/002-ask-document-questions/contracts/ask-api.md`](specs/002-ask-document-questions/contracts/ask-api.md) and, for the
+preference and the new answers, [`specs/005-model-router/contracts/ask-routing-api.md`](specs/005-model-router/contracts/ask-routing-api.md).
 
 ## 🧱 Architecture
 
 ```
 src/
 ├── Scriptorium.Core/             entities, interfaces, DTOs, services, Result<T> — no infrastructure dependencies
-├── Scriptorium.Infrastructure/   PdfPig and OpenXML parsers, EF Core + SQLite, file store, background queue, Ollama provider
+├── Scriptorium.Infrastructure/   PdfPig and OpenXML parsers, EF Core + SQLite, file store, background queue, Ollama and cloud providers
 ├── Scriptorium.API/              ASP.NET Core minimal API
 └── Scriptorium.Web/              Angular UI
 tests/
@@ -145,7 +161,8 @@ specs/                            specification, plan, contracts and task list
 - **Errors as values:** failures travel as `Result<T>` instead of exceptions across layer boundaries.
 - **Off the request thread:** parsing runs in a background queue, so a large file never blocks the API.
 - **Local storage:** originals on disk, metadata and extracted text in SQLite.
-- **Provider isolation:** the domain asks the model through `IAIProvider`; only `OllamaProvider` knows Ollama exists.
+- **Provider isolation:** the domain asks the model through `IAIProvider` and `ICloudAIProvider`; only `OllamaProvider` knows Ollama exists
+  and only `ClaudeProvider` knows the cloud service exists. `ModelRouter` is the only place that chooses between them.
 - **Stateless conversations:** the server keeps no chat; the web page sends the earlier exchanges with each question.
 
 More detail, with the main flows as diagrams, in [`docs/architecture.md`](docs/architecture.md).
@@ -177,7 +194,8 @@ Everything for the first feature, document upload and parsing, lives in
 [`specs/001-document-upload-parsing/`](specs/001-document-upload-parsing/): the specification,
 plan, research, data model, API contracts, quickstart, task list and validation results.
 The second feature, asking questions about a document, is in
-[`specs/002-ask-document-questions/`](specs/002-ask-document-questions/).
+[`specs/002-ask-document-questions/`](specs/002-ask-document-questions/). The model router is in
+[`specs/005-model-router/`](specs/005-model-router/).
 
 Each feature is built on its own branch and merged through a pull request. Project conventions
 are in [`Claude.md`](Claude.md).
