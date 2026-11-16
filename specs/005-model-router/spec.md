@@ -161,7 +161,8 @@ question to the local model, all without changing any decision rule.
 - **SC-002**: For a private document, 100% of the combinations of preference (Auto, Local, Cloud) and complexity (at, below
   and above the threshold) never use the cloud backend, whether the cloud is on or off.
 - **SC-003**: Every automated test and manual check of the question feature (feature 002) that passed before this feature still
-  passes without being changed, and a person asking a question with the delivered settings notices no difference.
+  passes: no existing test case is removed and none has its expectations changed (only the way the object under test is built
+  and called may change), and a person asking a question with the delivered settings notices no difference.
 - **SC-004**: With a stand-in cloud backend switched on in a test, the full table of decisions (privacy × preference ×
   complexity above, at and below the threshold) gives the expected backend in 100% of the cases, without any change to the
   decision rules between runs.
@@ -183,7 +184,7 @@ question to the local model, all without changing any decision rule.
 - Out of scope: summaries, entity extraction, per-user settings, usage or cost tracking, billing, and any change to what the
   local model reads.
 - Depends on the existing question feature (002) and the stored Private flag (001). The cloud backend uses the provider's
-  official client library, approved by the user as long as it is free (checked: MIT licence). Which library, and what it pulls
+  official client library, approved by the user as long as it is free (checked: open-source, Apache-2.0). Which library, and what it pulls
   in, is for the plan to list; nothing else is added without asking.
 
 ## Clarifications
@@ -192,5 +193,5 @@ question to the local model, all without changing any decision rule.
 
 - Q: What happens when Cloud is chosen but the cloud is off or unreachable? → A: an explicit error and no answer (option A); no silent fallback to the local model. (FR-008)
 - Q: What happens when Cloud is chosen for a private document? → A: the choice is refused with a clear message (option A). (FR-009)
-- Q: Does the feature include a real cloud backend, or only the point where it will be plugged in? → A: a real cloud backend is included, switched off (option B). The user approved the provider's official client library on the condition that it is free; it was checked on 2026-11-16 and is published by the provider under the MIT licence. Using the library costs nothing: only calls to the service are paid, and none is ever made while the cloud is off. (FR-017)
+- Q: Does the feature include a real cloud backend, or only the point where it will be plugged in? → A: a real cloud backend is included, switched off (option B). The user approved the provider's official client library on the condition that it is free; it was checked on 2026-11-16 and is published by the provider under an open-source licence (Apache-2.0 for the latest version, 13.8.0; an older one was MIT). Using the library costs nothing: only calls to the service are paid, and none is ever made while the cloud is off. (FR-017)
 - Decision by the user: no money is spent for now, so the cloud stays off and no paid key is used. (FR-007, SC-006)

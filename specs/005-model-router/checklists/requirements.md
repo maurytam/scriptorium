@@ -32,7 +32,7 @@
 ## Notes
 
 - Q1 (cloud chosen but off: explicit error) and Q2 (cloud chosen for a private document: refused) were answered on 2026-11-16.
-- Q3 answered: a real cloud backend is included, switched off; the provider's official client library is approved because it is free (MIT, checked).
+- Q3 answered: a real cloud backend is included, switched off; the provider's official client library is approved because it is free (open-source, Apache-2.0 for 13.8.0, checked).
 - Two points the user had asked not to decide alone were proposed and then **accepted** on 2026-11-16: how the complexity is
   measured (a simple, explainable rule with one configurable threshold) and the small label saying which backend answered.
 - The user decided: the cloud is off by default and no paid key is used (FR-007, SC-001, SC-006).
