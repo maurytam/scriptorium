@@ -118,6 +118,7 @@ Any key can also be set with an environment variable, using `__` for the colon (
 | `GET` | `/api/documents` | List documents, newest first |
 | `GET` | `/api/documents/{id}` | Metadata and, if it failed, the reason |
 | `GET` | `/api/documents/{id}/text` | Extracted text (`409` until the document is ready) |
+| `GET` | `/api/documents/{id}/text/preview` | The extracted text cut at the limit the model reads: `content`, `truncated`, `totalCharacters` (`404` unknown document, `409` until it is ready) |
 | `DELETE` | `/api/documents/{id}` | Delete a document (`409` while it is still processing) |
 | `GET` | `/api/documents/limits` | Upload limits enforced by the server |
 | `POST` | `/api/documents/{id}/ask` | Ask a question about a ready document (JSON: `question`, optional `history` of earlier exchanges). `200` with `answer` and `truncated`, or `400` invalid question, `404` unknown document, `409` document not ready, `503` Ollama or the model not available, `504` no answer in time |
@@ -146,6 +147,8 @@ specs/                            specification, plan, contracts and task list
 - **Local storage:** originals on disk, metadata and extracted text in SQLite.
 - **Provider isolation:** the domain asks the model through `IAIProvider`; only `OllamaProvider` knows Ollama exists.
 - **Stateless conversations:** the server keeps no chat; the web page sends the earlier exchanges with each question.
+
+More detail, with the main flows as diagrams, in [`docs/architecture.md`](docs/architecture.md).
 
 ## 🧪 Tests
 
