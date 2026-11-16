@@ -40,4 +40,18 @@ reported that every expected result was obtained; the exact observations were no
 Checks on the endpoint were made on a throwaway API (port 5099, database in the scratchpad, stopped afterwards by its own PID); the
 user's API on 5034 was not touched.
 
-Not yet covered: the final run (scenario 10) and the automated tests at the end of the feature.
+## Final run and review of the constitution (2026-11-16)
+
+| Check | Result | Seen by |
+|---|---|---|
+| 10. No regression: `dotnet build` | 0 warnings, 0 errors | Claude |
+| 10. No regression: `dotnet test` | Core 117 passing, Infrastructure 187 passing, 0 failing, 0 skipped (feature 001 to 003 tests included) | Claude |
+| 10. No regression: `npm test -- --watch=false --browsers=ChromeHeadless` | 131 of 131 passing (129 at the end of User Story 1, plus the 2 of User Story 2) | Claude |
+| `npm run build` | Bundle generated, no warnings | Claude |
+| No new package | `git diff main --name-only` lists no `.csproj`, `package.json` or `package-lock.json` | Claude |
+| No `innerHTML` in the popup | `grep` finds none in `text-popup/` | Claude |
+| No `!` without a comment, no `.Result`/`.Wait()`, no reflection | None in the new code (the only `!` of the feature sits in a test helper, with its comment) | Claude |
+| One cut only | `TextExcerpt` is used by `QuestionPromptBuilder` and by `DocumentTextPreviewService`; the old `FitToBudget` is gone. The other `IsHighSurrogate` in the code base (`SignerNameReader`) belongs to feature 003 and cuts a name, not the text | Claude |
+| Methods under 30 lines, one responsibility each | `TextExcerpt`, `DocumentTextPreviewService`, `TextPreviewResult`, the endpoint method, `TextPopupComponent` and `TextPopupSelectionService`: all short; the component only shows what the server sends and does not cut or count (only `content.length` for the note) | Claude |
+
+No deviation from the constitution was found. Nothing was removed from the tests that existed before the feature.
