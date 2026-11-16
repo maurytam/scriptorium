@@ -262,6 +262,129 @@ public sealed class QuestionEndpointTests : IDisposable
         _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    // ---- routing (feature 005, user story 2): the preference sent with the question ----
+
+    private const string CloudNotAvailable =
+        "The cloud model is not available. It is switched off or not set up. Choose Auto or Local to be answered on this computer.";
+
+    private const string PrivateRefused = "This document is private, so it can only be answered on this computer. Choose Auto or Local.";
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("auto")]
+    [InlineData("Auto")]
+    [InlineData("local")]
+    [InlineData("LOCAL")]
+    public async Task Ask_AutoOrLocalPreference_IsAnsweredByTheLocalProvider(string? preference)
+    {
+        var id = await ReadyDocumentAsync("Maria Rossi signed the agreement.");
+
+        var response = await AskAsync(id, "Who signed?", preference);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await ApiTestHost.ReadJsonAsync(response);
+        body.GetProperty("answer").GetString().Should().Be("Maria Rossi.");
+        body.GetProperty("backend").GetString().Should().Be("local");
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Ask_ANullPreference_BehavesAsAuto()
+    {
+        var id = await ReadyDocumentAsync("some text");
+
+        var response = await _client.PostAsJsonAsync($"/api/documents/{id}/ask", new { question = "q", preference = (string?)null });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("backend").GetString().Should().Be("local");
+    }
+
+    [Theory]
+    [InlineData("cloud")]
+    [InlineData("CLOUD")]
+    public async Task Ask_CloudWhileTheCloudIsOff_Returns503AndNeverCallsTheLocalProvider(string preference)
+    {
+        var id = await ReadyDocumentAsync("some text");
+
+        var response = await AskAsync(id, "Who signed?", preference);
+
+        response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString().Should().Be(CloudNotAvailable);
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Ask_CloudOnAPrivateDocument_Returns409AndNoModelIsCalled()
+    {
+        var id = await ReadyDocumentAsync("Confidential: Maria Rossi signed.", isPrivate: "true");
+
+        var response = await AskAsync(id, "Who signed?", "cloud");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString().Should().Be(PrivateRefused);
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("turbo")]
+    [InlineData("   ")]
+    [InlineData("cloud ")]
+    public async Task Ask_AnUnknownPreference_Returns400WithoutCallingAnyModel(string preference)
+    {
+        var id = await ReadyDocumentAsync("some text");
+
+        var response = await AskAsync(id, "Who signed?", preference);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString()
+            .Should().Be("The preference must be auto, local or cloud.");
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Ask_AnInvalidPreference_IsCheckedBeforeAnythingElse()
+    {
+        var response = await AskAsync(Guid.NewGuid(), string.Empty, "turbo");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString()
+            .Should().Be("The preference must be auto, local or cloud.");
+    }
+
+    [Fact]
+    public async Task Ask_WithCloud_AnUnknownDocumentStillGives404()
+    {
+        var response = await AskAsync(Guid.NewGuid(), "Who signed?", "cloud");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString().Should().Be("Document not found.");
+    }
+
+    [Fact]
+    public async Task Ask_WithCloud_ADocumentNotReadyStillGives409NamingTheStatus()
+    {
+        var id = await _host.UploadAcceptedAsync("broken.docx", SampleDocuments.Txt("not a docx"), "true");
+        await _host.WaitForTerminalStatusAsync(id);
+
+        var response = await AskAsync(id, "Who signed?", "cloud");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString()
+            .Should().Be("The document is not ready. Current status: failed.");
+    }
+
+    [Fact]
+    public async Task Ask_WithCloud_AnInvalidQuestionStillGives400()
+    {
+        var id = await ReadyDocumentAsync("some text");
+
+        var response = await AskAsync(id, "   ", "cloud");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString().Should().Be("The question is empty.");
+    }
+
     private async Task<Guid> ReadyDocumentAsync(string text, string? isPrivate = null)
     {
         var id = await _host.UploadAcceptedAsync("notes.txt", SampleDocuments.Txt(text), isPrivate);
@@ -272,6 +395,8 @@ public sealed class QuestionEndpointTests : IDisposable
     private async Task AssertApiKeepsAnsweringAsync() =>
         (await _client.GetAsync("/api/documents/limits")).StatusCode.Should().Be(HttpStatusCode.OK);
 
-    private Task<HttpResponseMessage> AskAsync(Guid id, string question) =>
-        _client.PostAsJsonAsync($"/api/documents/{id}/ask", new { question });
+    private Task<HttpResponseMessage> AskAsync(Guid id, string question, string? preference = null) =>
+        preference is null
+            ? _client.PostAsJsonAsync($"/api/documents/{id}/ask", new { question })
+            : _client.PostAsJsonAsync($"/api/documents/{id}/ask", new { question, preference });
 }

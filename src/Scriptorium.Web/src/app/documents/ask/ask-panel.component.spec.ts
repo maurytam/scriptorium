@@ -54,7 +54,11 @@ describe('AskPanelComponent', () => {
     textarea().dispatchEvent(new Event('input'));
     fixture.detectChanges();
   };
-  const answer = (value = 'Maria Rossi.', truncated = false): AskResponse => ({ answer: value, truncated });
+  const answer = (value = 'Maria Rossi.', truncated = false, backend: AskResponse['backend'] = 'local'): AskResponse => ({
+    answer: value,
+    truncated,
+    backend,
+  });
 
   it('shows nothing until a document is opened', () => {
     expect(root().querySelector('section')).toBeNull();
@@ -75,7 +79,7 @@ describe('AskPanelComponent', () => {
     sendButton().click();
     fixture.detectChanges();
 
-    expect(api.ask).toHaveBeenCalledOnceWith('report', 'Who signed?', []);
+    expect(api.ask).toHaveBeenCalledOnceWith('report', 'Who signed?', [], 'auto');
     expect(text()).toContain('Who signed?');
     expect(text()).toContain('Maria Rossi.');
     expect(textarea().value).toBe('');
@@ -206,6 +210,136 @@ describe('AskPanelComponent', () => {
       fixture.detectChanges();
 
       expect(root().querySelector('[role=alert]')).toBeNull();
+    });
+  });
+
+  describe('which model answers', () => {
+    const selector = () => root().querySelector('select') as HTMLSelectElement;
+    const choose = (value: string) => {
+      selector().value = value;
+      selector().dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    };
+
+    it('offers Auto, Local and Cloud with Auto selected, and Cloud is never disabled', () => {
+      open();
+
+      const options = Array.from(selector().options);
+      expect(options.map((o) => o.value)).toEqual(['auto', 'local', 'cloud']);
+      expect(options.map((o) => o.textContent?.trim())).toEqual(['Auto', 'Local', 'Cloud']);
+      expect(selector().value).toBe('auto');
+      expect(options.every((o) => !o.disabled)).toBeTrue();
+      expect(selector().getAttribute('aria-label') ?? root().querySelector('label[for]')).toBeTruthy();
+    });
+
+    it('sends the chosen preference with the question', () => {
+      api.ask.and.returnValue(of(answer()));
+      open('report');
+      choose('local');
+
+      type('Who signed?');
+      sendButton().click();
+
+      expect(api.ask).toHaveBeenCalledOnceWith('report', 'Who signed?', [], 'local');
+    });
+
+    it('keeps the choice for the next question of the same conversation', () => {
+      api.ask.and.returnValues(of(answer()), of(answer()));
+      open();
+      choose('cloud');
+
+      type('First?');
+      sendButton().click();
+      type('Second?');
+      sendButton().click();
+
+      expect(api.ask.calls.argsFor(1)[3]).toBe('cloud');
+    });
+
+    it('labels each answer with the backend that produced it', () => {
+      api.ask.and.returnValues(of(answer('Local one.', false, 'local')), of(answer('Cloud one.', false, 'cloud')));
+      open();
+
+      type('First?');
+      sendButton().click();
+      type('Second?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      const exchanges = root().querySelectorAll('.exchange');
+      expect(exchanges[0].querySelector('.backend')?.textContent).toContain('Answered on this computer');
+      expect(exchanges[1].querySelector('.backend')?.textContent).toContain('Answered by the cloud model');
+    });
+
+    it('goes back to Auto when another document is opened', () => {
+      open('a');
+      choose('cloud');
+
+      open('b');
+
+      expect(selector().value).toBe('auto');
+    });
+
+    it('goes back to Auto when the panel is closed and opened again', () => {
+      open('a');
+      choose('local');
+
+      selection.close();
+      settle();
+      open('a');
+
+      expect(selector().value).toBe('auto');
+    });
+
+    it('goes back to Auto on New conversation', () => {
+      api.ask.and.returnValue(of(answer()));
+      open();
+      choose('cloud');
+      type('Who signed?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      (Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'New conversation') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(selector().value).toBe('auto');
+      expect(component.preference()).toBe('auto');
+    });
+
+    it('shows the server message as it is when the cloud is not available (503)', () => {
+      const message =
+        'The cloud model is not available. It is switched off or not set up. Choose Auto or Local to be answered on this computer.';
+      api.ask.and.returnValue(throwError(() => new HttpErrorResponse({ status: 503, error: { error: message } })));
+      open();
+      choose('cloud');
+
+      type('Who signed?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      expect(root().querySelector('[role=alert]')?.textContent).toContain(message);
+      expect(selector().value).toBe('cloud');
+    });
+
+    it('shows the server message as it is when a private document is refused for the cloud (409)', () => {
+      const message = 'This document is private, so it can only be answered on this computer. Choose Auto or Local.';
+      api.ask.and.returnValue(throwError(() => new HttpErrorResponse({ status: 409, error: { error: message } })));
+      open();
+      choose('cloud');
+
+      type('Who signed?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      expect(root().querySelector('[role=alert]')?.textContent).toContain(message);
+    });
+
+    it('no longer claims that every answer is produced on the computer', () => {
+      open();
+
+      expect(text()).not.toContain('are produced on your computer');
+      expect(root().querySelector('.ask-hint')?.textContent).toContain('on your computer');
+      expect(root().querySelector('.ask-hint')?.textContent).toContain('Cloud');
     });
   });
 
@@ -383,6 +517,7 @@ describe('AskPanelComponent', () => {
       'report',
       'Second?',
       [{ question: 'First?', answer: 'First answer.' }],
+      'auto',
     ]);
     expect(api.ask.calls.argsFor(2)[2]).toEqual([
       { question: 'First?', answer: 'First answer.' },
@@ -398,7 +533,7 @@ describe('AskPanelComponent', () => {
     sendButton().click();
     sendButton().click(); // retry with the question still in the input
 
-    expect(api.ask.calls.argsFor(1)).toEqual(['report', 'Lost?', []]);
+    expect(api.ask.calls.argsFor(1)).toEqual(['report', 'Lost?', [], 'auto']);
   });
 
   describe('New conversation', () => {
@@ -435,7 +570,7 @@ describe('AskPanelComponent', () => {
 
       type('Fresh?');
       sendButton().click();
-      expect(api.ask.calls.mostRecent().args).toEqual(['report', 'Fresh?', []]);
+      expect(api.ask.calls.mostRecent().args).toEqual(['report', 'Fresh?', [], 'auto']);
     });
 
     it('drops an answer that was still on its way', () => {

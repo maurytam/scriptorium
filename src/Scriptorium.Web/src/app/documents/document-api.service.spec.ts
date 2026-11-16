@@ -130,9 +130,9 @@ describe('DocumentApiService', () => {
 
     const request = http.expectOne('/api/documents/abc/ask');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ question: 'Who signed?', history: [] });
-    request.flush({ answer: 'Maria Rossi.', truncated: false });
-    expect(received).toEqual({ answer: 'Maria Rossi.', truncated: false });
+    expect(request.request.body).toEqual({ question: 'Who signed?', history: [], preference: 'auto' });
+    request.flush({ answer: 'Maria Rossi.', truncated: false, backend: 'local' });
+    expect(received).toEqual({ answer: 'Maria Rossi.', truncated: false, backend: 'local' });
   });
 
   it('sends the earlier exchanges with the question', () => {
@@ -141,8 +141,29 @@ describe('DocumentApiService', () => {
     service.ask('abc', 'When?', history).subscribe();
 
     const request = http.expectOne('/api/documents/abc/ask');
-    expect(request.request.body).toEqual({ question: 'When?', history });
+    expect(request.request.body).toEqual({ question: 'When?', history, preference: 'auto' });
     request.flush({ answer: 'In May.', truncated: false });
+  });
+
+  it('sends the preference in the body and defaults to auto', () => {
+    service.ask('abc', 'Who signed?').subscribe();
+    const byDefault = http.expectOne('/api/documents/abc/ask');
+    expect(byDefault.request.body).toEqual({ question: 'Who signed?', history: [], preference: 'auto' });
+    byDefault.flush({ answer: 'Maria Rossi.', truncated: false, backend: 'local' });
+
+    service.ask('abc', 'Who signed?', [], 'cloud').subscribe();
+    const chosen = http.expectOne('/api/documents/abc/ask');
+    expect(chosen.request.body).toEqual({ question: 'Who signed?', history: [], preference: 'cloud' });
+    chosen.flush({ answer: 'Maria Rossi.', truncated: false, backend: 'cloud' });
+  });
+
+  it('hands back which backend answered', () => {
+    let received: AskResponse | undefined;
+
+    service.ask('abc', 'Who signed?').subscribe((response) => (received = response));
+
+    http.expectOne('/api/documents/abc/ask').flush({ answer: 'Maria Rossi.', truncated: false, backend: 'local' });
+    expect(received?.backend).toBe('local');
   });
 
   it('propagates the server message when a question is refused', () => {

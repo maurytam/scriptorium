@@ -3,6 +3,7 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { Subscription } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
+import { AskPreference, AskResponse } from '../document.models';
 import { describeAskFailure } from './ask-failure-message';
 import { ConversationSelectionService } from './conversation-selection.service';
 
@@ -10,6 +11,7 @@ interface Exchange {
   question: string;
   answer: string;
   truncated: boolean;
+  backend: AskResponse['backend'];
 }
 
 @Component({
@@ -25,6 +27,8 @@ export class AskPanelComponent {
   readonly document = this.selection.document;
   readonly transcript = signal<Exchange[]>([]);
   readonly question = signal('');
+  // Only sent to the server, which decides; the panel never routes anything itself.
+  readonly preference = signal<AskPreference>('auto');
   readonly waiting = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly maxQuestionLength = signal<number | null>(null);
@@ -55,6 +59,14 @@ export class AskPanelComponent {
     this.question.set((event.target as HTMLTextAreaElement).value);
   }
 
+  onPreferenceChange(event: Event): void {
+    this.preference.set((event.target as HTMLSelectElement).value as AskPreference);
+  }
+
+  backendLabel(exchange: Exchange): string {
+    return exchange.backend === 'cloud' ? 'Answered by the cloud model' : 'Answered on this computer';
+  }
+
   onEnter(event: Event): void {
     const key = event as KeyboardEvent;
     if (key.shiftKey) {
@@ -75,11 +87,11 @@ export class AskPanelComponent {
     this.waiting.set(true);
     this.errorMessage.set(null);
     const history = this.transcript().map(({ question, answer }) => ({ question, answer }));
-    this.pending = this.api.ask(document.id, text, history).subscribe({
+    this.pending = this.api.ask(document.id, text, history, this.preference()).subscribe({
       next: (response) => {
         this.transcript.update((exchanges) => [
           ...exchanges,
-          { question: text, answer: response.answer, truncated: response.truncated },
+          { question: text, answer: response.answer, truncated: response.truncated, backend: response.backend },
         ]);
         this.question.set('');
         this.waiting.set(false);
@@ -115,6 +127,7 @@ export class AskPanelComponent {
     this.pending = null;
     this.transcript.set([]);
     this.question.set('');
+    this.preference.set('auto');
     this.errorMessage.set(null);
     this.waiting.set(false);
   }

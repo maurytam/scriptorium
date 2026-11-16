@@ -18,18 +18,47 @@ public static class QuestionEndpoints
     private static async Task<IResult> AskAsync(
         Guid id, AskRequestDto? body, DocumentQuestionService questionService, CancellationToken ct)
     {
+        // The preference is checked first: a value that means nothing is refused before anything else is read.
+        if (!TryParsePreference(body?.Preference, out var preference))
+        {
+            return Results.BadRequest(new ErrorDto("The preference must be auto, local or cloud."));
+        }
+
         var history = ToExchanges(body?.History);
         if (history is null)
         {
             return Results.BadRequest(new ErrorDto("Every earlier exchange needs a question and an answer."));
         }
 
-        // The preference is read from the request in the next step; until then every question is Auto.
-        var result = await questionService.AskAsync(id, body?.Question ?? string.Empty, history, ModelPreference.Auto, ct);
+        var result = await questionService.AskAsync(id, body?.Question ?? string.Empty, history, preference, ct);
 
         return result.IsSuccess
             ? Results.Ok(AskResponseDto.From(result))
             : ToFailureResponse(result.FailureKind, result.Error);
+    }
+
+    /// <summary>Absent, null or empty is Auto; otherwise exactly auto, local or cloud in any letter case.</summary>
+    private static bool TryParsePreference(string? value, out ModelPreference preference)
+    {
+        preference = ModelPreference.Auto;
+        if (string.IsNullOrEmpty(value))
+        {
+            return true;
+        }
+
+        return value.ToLowerInvariant() switch
+        {
+            "auto" => true,
+            "local" => Chosen(ModelPreference.Local, out preference),
+            "cloud" => Chosen(ModelPreference.Cloud, out preference),
+            _ => false
+        };
+    }
+
+    private static bool Chosen(ModelPreference chosen, out ModelPreference preference)
+    {
+        preference = chosen;
+        return true;
     }
 
     /// <summary>Maps the earlier exchanges; null when one of them is incomplete. No history is an empty list.</summary>
@@ -56,7 +85,7 @@ public static class QuestionEndpoints
         {
             AskFailureKind.InvalidQuestion => Results.BadRequest(body),
             AskFailureKind.NotFound => Results.NotFound(body),
-            AskFailureKind.NotReady => Results.Conflict(body),
+            AskFailureKind.NotReady or AskFailureKind.PreferenceNotAllowed => Results.Conflict(body),
             AskFailureKind.ModelUnavailable => Results.Json(body, statusCode: StatusCodes.Status503ServiceUnavailable),
             AskFailureKind.Timeout => Results.Json(body, statusCode: StatusCodes.Status504GatewayTimeout),
             _ => Results.Json(body, statusCode: StatusCodes.Status500InternalServerError)
