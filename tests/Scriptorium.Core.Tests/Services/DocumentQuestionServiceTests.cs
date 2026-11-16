@@ -301,6 +301,123 @@ public class DocumentQuestionServiceTests
         result.Backend.Should().Be(ModelBackend.Cloud);
     }
 
+    // ---- routing (feature 005, user story 3): the cloud switched on, proved with a stand-in that has a key ----
+
+    private const string ComplexQuestion = "Compare the two clauses? Explain why they differ?"; // two marks + reasoning words
+    private static readonly string LongText = new('x', 80); // 80 % of the limit of 100 in these tests: a long reading
+
+    private DocumentQuestionService CloudOn() => ServiceWith(new RoutingOptions { CloudEnabled = true }, cloudConfigured: true);
+
+    [Fact]
+    public async Task AskAsync_CloudOn_AComplexQuestionUnderAutoIsAnsweredByTheStandIn()
+    {
+        ReadyDocument(LongText);
+        AnswerFromCloudWith("from the cloud");
+
+        var result = await CloudOn().AskAsync(_id, ComplexQuestion, null, ModelPreference.Auto, CancellationToken.None);
+
+        result.Answer.Should().Be("from the cloud");
+        result.Backend.Should().Be(ModelBackend.Cloud);
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AskAsync_CloudOn_AQuestionAtTheThresholdStaysLocal()
+    {
+        ReadyDocument("short"); // score 2: two marks and reasoning words, no long reading
+        AnswerWith("local");
+
+        var result = await CloudOn().AskAsync(_id, ComplexQuestion, null, ModelPreference.Auto, CancellationToken.None);
+
+        result.Backend.Should().Be(ModelBackend.Local);
+        _cloud.Verify(c => c.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(ModelPreference.Auto)]
+    [InlineData(ModelPreference.Local)]
+    public async Task AskAsync_CloudOn_APrivateDocumentNeverReachesTheStandIn(ModelPreference preference)
+    {
+        ReadyDocument(LongText, isPrivate: true);
+        AnswerWith("local");
+
+        var result = await CloudOn().AskAsync(_id, ComplexQuestion, null, preference, CancellationToken.None);
+
+        result.Backend.Should().Be(ModelBackend.Local);
+        _cloud.Verify(c => c.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AskAsync_CloudOn_PreferenceLocalNeverReachesTheStandIn()
+    {
+        ReadyDocument(LongText);
+        AnswerWith("local");
+
+        var result = await CloudOn().AskAsync(_id, ComplexQuestion, null, ModelPreference.Local, CancellationToken.None);
+
+        result.Backend.Should().Be(ModelBackend.Local);
+        _cloud.Verify(c => c.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("q", "short")]
+    [InlineData(ComplexQuestion, "a long enough text to count as a long reading, but it does not matter for this choice at all")]
+    public async Task AskAsync_CloudOn_PreferenceCloudOnANonPrivateDocumentReachesTheStandInWhateverTheComplexity(string question, string text)
+    {
+        ReadyDocument(text);
+        AnswerFromCloudWith("from the cloud");
+
+        var result = await CloudOn().AskAsync(_id, question, null, ModelPreference.Cloud, CancellationToken.None);
+
+        result.Backend.Should().Be(ModelBackend.Cloud);
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(ModelPreference.Auto)]
+    [InlineData(ModelPreference.Local)]
+    public async Task AskAsync_TheSameSetUpWithTheCloudOff_SendsEverythingToTheLocalProvider(ModelPreference preference)
+    {
+        ReadyDocument(LongText);
+        AnswerWith("local");
+        var cloudOff = ServiceWith(new RoutingOptions { CloudEnabled = false }, cloudConfigured: true);
+
+        var result = await cloudOff.AskAsync(_id, ComplexQuestion, null, preference, CancellationToken.None);
+
+        result.Backend.Should().Be(ModelBackend.Local);
+        _cloud.Verify(c => c.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AskAsync_TheSameSetUpWithTheCloudOff_RefusesCloudWithoutCallingAnyone()
+    {
+        ReadyDocument(LongText);
+        var cloudOff = ServiceWith(new RoutingOptions { CloudEnabled = false }, cloudConfigured: true);
+
+        var result = await cloudOff.AskAsync(_id, ComplexQuestion, null, ModelPreference.Cloud, CancellationToken.None);
+
+        result.FailureKind.Should().Be(AskFailureKind.ModelUnavailable);
+        _cloud.Verify(c => c.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(AiFailureKind.Unavailable, AskFailureKind.ModelUnavailable, "The cloud model is not available. Check the cloud settings and your connection.")]
+    [InlineData(AiFailureKind.Timeout, AskFailureKind.Timeout, "The cloud model did not answer in time. Please try again.")]
+    public async Task AskAsync_CloudOn_WhenTheStandInFails_ThereIsNoFallbackToTheLocalProvider(
+        AiFailureKind aiKind, AskFailureKind expected, string message)
+    {
+        ReadyDocument(LongText);
+        _cloud.Setup(c => c.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AiResult.Failure(aiKind, message));
+
+        var result = await CloudOn().AskAsync(_id, ComplexQuestion, null, ModelPreference.Auto, CancellationToken.None);
+
+        result.FailureKind.Should().Be(expected);
+        result.Error.Should().Be(message);
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private DocumentQuestionService ServiceWith(RoutingOptions routing, bool cloudConfigured = false, QaOptions? qa = null)
     {
         qa ??= Options;

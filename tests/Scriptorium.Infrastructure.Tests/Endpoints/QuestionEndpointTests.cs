@@ -385,6 +385,121 @@ public sealed class QuestionEndpointTests : IDisposable
         (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString().Should().Be("The question is empty.");
     }
 
+    // ---- routing (feature 005, user story 3): the cloud switched on by configuration, with a stand-in and no key ----
+
+    // Two question marks, reasoning words and 400+ characters: three signals, above the default threshold of 2.
+    private static readonly string ComplexQuestion = "Compare the two clauses? Explain why they differ? " + new string('x', 400);
+
+    [Fact]
+    public async Task Ask_CloudOn_AComplexAutoQuestionIsAnsweredByTheStandInAndSaysCloud()
+    {
+        var cloud = StandInAnswering(AiResult.Success("From the cloud."));
+        using var client = CloudOnClient(cloud);
+        var id = await ReadyDocumentAsync("Some document text.");
+
+        var response = await AskAsync(client, id, ComplexQuestion, "auto");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await ApiTestHost.ReadJsonAsync(response);
+        body.GetProperty("answer").GetString().Should().Be("From the cloud.");
+        body.GetProperty("backend").GetString().Should().Be("cloud");
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Ask_CloudOn_TheSameQuestionOnAPrivateDocumentIsAnsweredLocally()
+    {
+        var cloud = StandInAnswering(AiResult.Success("From the cloud."));
+        using var client = CloudOnClient(cloud);
+        var id = await ReadyDocumentAsync("Confidential text.", isPrivate: "true");
+
+        var response = await AskAsync(client, id, ComplexQuestion, "auto");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("backend").GetString().Should().Be("local");
+        cloud.Verify(c => c.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Ask_CloudOn_ASimpleAutoQuestionStaysLocal()
+    {
+        var cloud = StandInAnswering(AiResult.Success("From the cloud."));
+        using var client = CloudOnClient(cloud);
+        var id = await ReadyDocumentAsync("Some document text.");
+
+        var response = await AskAsync(client, id, "Who signed?", "auto");
+
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("backend").GetString().Should().Be("local");
+        cloud.Verify(c => c.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Ask_CloudOnButTheRealProviderHasNoKey_CloudGives503AndAutoStaysLocal()
+    {
+        using var factory = _host.Factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Routing:CloudEnabled", "true");
+            builder.UseSetting("Anthropic:ApiKey", string.Empty); // a key in the owner's secrets must not change this test
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IAIProvider>();
+                services.AddSingleton(_provider.Object);
+            });
+        });
+        using var client = factory.CreateClient();
+        var id = await ReadyDocumentAsync("Some document text.");
+
+        var cloudChosen = await AskAsync(client, id, "Who signed?", "cloud");
+        var autoComplex = await AskAsync(client, id, ComplexQuestion, "auto");
+
+        cloudChosen.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        (await ApiTestHost.ReadJsonAsync(cloudChosen)).GetProperty("error").GetString().Should().Be(CloudNotAvailable);
+        autoComplex.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ApiTestHost.ReadJsonAsync(autoComplex)).GetProperty("backend").GetString().Should().Be("local");
+    }
+
+    [Theory]
+    [InlineData(AiFailureKind.Unavailable, HttpStatusCode.ServiceUnavailable, "The cloud model is not available. Check the cloud settings and your connection.")]
+    [InlineData(AiFailureKind.Timeout, HttpStatusCode.GatewayTimeout, "The cloud model did not answer in time. Please try again.")]
+    public async Task Ask_CloudOn_WhenTheStandInFails_ReturnsItsStatusAndTextWithoutFallingBackToTheLocalModel(
+        AiFailureKind kind, HttpStatusCode expectedStatus, string message)
+    {
+        var cloud = StandInAnswering(AiResult.Failure(kind, message));
+        using var client = CloudOnClient(cloud);
+        var id = await ReadyDocumentAsync("Some document text.");
+
+        var response = await AskAsync(client, id, "Who signed?", "cloud");
+
+        response.StatusCode.Should().Be(expectedStatus);
+        (await ApiTestHost.ReadJsonAsync(response)).GetProperty("error").GetString().Should().Be(message);
+        _provider.Verify(p => p.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static Mock<ICloudAIProvider> StandInAnswering(AiResult result)
+    {
+        var cloud = new Mock<ICloudAIProvider>();
+        cloud.SetupGet(c => c.IsConfigured).Returns(true);
+        cloud.Setup(c => c.CompleteAsync(It.IsAny<AiRequest>(), It.IsAny<CancellationToken>())).ReturnsAsync(result);
+        return cloud;
+    }
+
+    // The cloud is switched on by configuration and the real provider is replaced by the stand-in: nothing leaves the process.
+    private HttpClient CloudOnClient(Mock<ICloudAIProvider> cloud) =>
+        _host.Factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Routing:CloudEnabled", "true");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IAIProvider>();
+                services.AddSingleton(_provider.Object);
+                services.RemoveAll<ICloudAIProvider>();
+                services.AddSingleton(cloud.Object);
+            });
+        }).CreateClient();
+
+    private static Task<HttpResponseMessage> AskAsync(HttpClient client, Guid id, string question, string preference) =>
+        client.PostAsJsonAsync($"/api/documents/{id}/ask", new { question, preference });
+
     private async Task<Guid> ReadyDocumentAsync(string text, string? isPrivate = null)
     {
         var id = await _host.UploadAcceptedAsync("notes.txt", SampleDocuments.Txt(text), isPrivate);
