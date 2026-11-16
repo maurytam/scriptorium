@@ -9,7 +9,7 @@ Clarifications. Nothing here needs a key, a network call to the cloud or a new p
 as `DocumentQuestionService` with another prompt: load the ready document, check it has enough text, score, route, ask the provider
 the router chose. The two pieces both services need are **moved out** into small static helpers:
 
-- `ReadyDocumentText.LoadAsync(repository, id, ct)`: the document if it exists and is ready, its text and its `IsPrivate`; otherwise
+- `ReadyDocumentText.LoadAsync(repository, id, ct)` (a sealed class with a static `LoadAsync` that returns the class itself as the result: `IsSuccess`, `Value`, `IsPrivate`, `FailureKind`, `Error`): the document if it exists and is ready, its text and its `IsPrivate`; otherwise
   the failure kind and message (`NotFound` / `NotReady` / `Internal`). It is today the private `LoadTextAsync` and the nested
   `DocumentText` of `DocumentQuestionService`.
 - `AskFailureMapper`: `FromRouting(kind, message)` and `FromProvider(kind, message)`, today the two private `ToRoutingFailure` and

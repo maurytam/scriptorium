@@ -19,7 +19,7 @@
   Stop it afterwards by the process id of its own port only. To look at the page, the throwaway API must listen on the port the dev
   server proxies to (5034), so the user's own API is stopped first, **by the user**.
 - Fake files only, in `~/Desktop/prove-scriptorium`: `facts.txt` (short, not private), `long.txt` (longer than 8,000 characters),
-  `router-private.txt` (upload it with **Private** ticked) and a new `tiny.txt` of a few words (for example "Hello there."). **No
+  `router-private.txt` (upload it with **Private** ticked), a new `tiny.txt` of a few words (for example "Hello there.") and a fake `broken.docx` (plain text with a `.docx` name, so it fails). **No
   real document of the user is read or used.**
 
 ## Scenario 1: A normal document is summarised locally (User Story 1)
@@ -54,9 +54,9 @@ console shows no request).
 
 ## Scenario 4: Too little text, a document not ready, an unknown id
 
-Upload `tiny.txt` and ask for its summary; then ask for a random id.
+Upload `tiny.txt` and ask for its summary; upload `broken.docx` (fake, it ends up *failed*) and ask for its summary; then ask for a random id.
 
-**Expected**: `409` *The document has too little text to summarise.* (no request reaches Ollama); `404` *Document not found.*
+**Expected**: `409` *The document has too little text to summarise.* (no request reaches Ollama); `409` *The document is not ready. Current status: failed.*; `404` *Document not found.*
 
 ## Scenario 5: A long document says what it covered (User Story 3)
 

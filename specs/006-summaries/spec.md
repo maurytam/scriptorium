@@ -173,8 +173,8 @@ saying what part of the document was read.
 
 - Single user, running on their own machine; local first. The cloud stays off because the project is a personal portfolio with no
   budget for paid services for now (decision of the user, 2026-11-16).
-- A summary is asked for from the document list or the question panel of a ready document, in the same place the person already
-  opens a document to ask about it.
+- A summary is asked for from the question panel of a ready document (the panel opened with **Ask**, which only ready documents
+  have), in the same place the person already asks about it.
 - The summary uses the same model, the same limits on how much of the document the model reads, and the same time limit as the
   questions, unless the plan finds a reason to differ.
 - For the preference Auto, the router needs a complexity score for a request that has no question text. The plan will decide how a

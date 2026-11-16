@@ -15,7 +15,7 @@ to the local model, and the same label of which backend answered.
 The work is small because almost everything exists. A new Core use case, `DocumentSummaryService`, does what
 `DocumentQuestionService` does for a question, with a different prompt: load the ready document, check it has enough text, score,
 route, ask the chosen provider. The parts the two services share (loading a ready document, turning routing and provider failures
-into the failure kinds the endpoints map) are **moved out into two small static helpers** instead of being copied, and
+into the failure kinds the endpoints map) are **moved out into two small helpers** (`ReadyDocumentText` and `AskFailureMapper`) instead of being copied, and
 `DocumentQuestionService` calls them; its public shape and its tests do not change. A new `SummaryPromptBuilder` writes the prompt.
 A new endpoint `POST /api/documents/{id}/summary` takes an optional `preference` and answers with `summary`, `truncated` and
 `backend`. The question panel gets a **Summarise** button that uses the panel's existing **Answer with** selector.
@@ -66,7 +66,7 @@ fallback when the cloud fails; no new package; every method under 30 lines.
 | II. Async-First | `DocumentSummaryService.SummarizeAsync` is `async` and passes the `CancellationToken` down; no `.Result` or `.Wait()` |
 | III. Nullable Safety | No `!`; the one place that needs the compiler's help keeps its existing `MemberNotNullWhen` pattern |
 | IV. Result pattern | A summary returns `AskResult` (success with text, truncation and backend, or a failure kind and a message); no exception crosses a layer |
-| V. Constructor injection | `DocumentSummaryService(repository, router, scorer, promptBuilder, options)`; the two helpers are static and take what they need as arguments |
+| V. Constructor injection | `DocumentSummaryService(repository, router, scorer, promptBuilder)`; the helpers take what they need as arguments (`AskFailureMapper` is static, `ReadyDocumentText` has a static `LoadAsync` and is its own result) |
 | VI. Single responsibility, under 30 lines | One class per job: use case, prompt, loading a ready document, mapping failures. `DocumentQuestionService` gets **smaller** (its loader and its two mappers move out) |
 | VII. Provider isolation | `ModelRouter` stays the only place that chooses a backend; the summary asks it and uses the provider it hands back. No `HttpClient` and no Ollama or cloud code is added; no provider class changes |
 | VIII. Test parity | Every new production class has a test class (see Testing); the helpers extracted from `DocumentQuestionService` get their own, and its existing tests stay as they are |
