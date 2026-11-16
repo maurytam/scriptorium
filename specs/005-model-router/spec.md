@@ -28,8 +28,9 @@ check the routing decision directly for every combination of private/non-private
 
 1. **Given** the cloud is off and a ready document, **When** the person asks a question, **Then** the local model answers and
    nothing about the question or the document is sent anywhere else.
-2. **Given** a document marked private, **When** a question is asked with any preference and any kind of question, **Then** the
-   local model is the only one that can be used.
+2. **Given** a document marked private, **When** a question is asked with the preference Auto or Local and any kind of
+   question, **Then** the local model is the only one that can be used. With the preference Cloud the choice is refused (see
+   User Story 2, scenario 4) and no model is called.
 3. **Given** the cloud is off, **When** the person asks questions with the preference Auto or Local, **Then** every answer comes
    from the local model, with the same limits, notices and error messages as before this feature.
 4. **Given** the same inputs (document privacy, preference, complexity), **When** the decision is made twice, **Then** the same
@@ -90,11 +91,13 @@ question to the local model, all without changing any decision rule.
 ### Edge Cases
 
 - A question whose complexity is exactly at the threshold: it is **not** above it, so Auto keeps it local.
-- A private document that is also a complex question, with Auto: local. The privacy rule wins over complexity and over the
-  Cloud preference.
+- A private document that is also a complex question, with Auto: local. The privacy rule wins over complexity. With the
+  preference Cloud the choice is refused with a clear message (FR-009) and no model is called.
 - The cloud is on but does not answer in time or is unreachable: the person gets a clear message, as the local model's
   unavailability does today. There is no silent fallback to the local model.
-- The cloud is switched on but no key is provided: it counts as unavailable, with the same explicit message, and nothing is sent.
+- The cloud is switched on but no key is provided: it counts as unusable and nothing is sent. With the preference Cloud the
+  person gets the same explicit "not available" message; with Auto a complex question is simply answered by the local model
+  (decided by the user on 2026-11-16: Auto never chooses a backend that cannot answer).
 - A request that carries no preference, or one that is not Auto, Local or Cloud: no preference means Auto; an unknown value is
   rejected as an invalid request and no model is called.
 - The document is not ready, or the question is invalid or too long: the existing messages and limits apply first; routing only
@@ -109,8 +112,8 @@ question to the local model, all without changing any decision rule.
 
 - **FR-001**: Each question about a document MUST be answered by exactly one backend, local or cloud, chosen by one routing
   decision made before any model is called.
-- **FR-002**: A document marked private MUST always be answered by the local backend, whatever the preference and the complexity
-  of the question.
+- **FR-002**: A document marked private MUST be answered only by the local backend, whatever the complexity of the question:
+  with the preference Auto or Local it is answered locally, and with the preference Cloud the choice is refused (FR-009).
 - **FR-003**: The person MUST be able to state a preference of Auto, Local or Cloud for a question; when none is given, Auto
   applies.
 - **FR-004**: With the preference Local, the local backend MUST answer.
@@ -130,7 +133,8 @@ question to the local model, all without changing any decision rule.
 - **FR-011**: The threshold of complexity above which Auto prefers the cloud MUST be configurable and have a documented
   default.
 - **FR-012**: The routing decision MUST be deterministic and explainable: it depends only on the privacy of the document, the
-  preference, the complexity of the question and whether the cloud is on, and can be reproduced from those four facts.
+  preference, the complexity of the question and whether the cloud is usable (switched on and configured with a key), and can be
+  reproduced from those four facts.
 - **FR-013**: The local and the cloud backends MUST stay separate: adding, changing or switching off one MUST NOT change how the
   other behaves.
 - **FR-014**: The existing question flow MUST be unchanged for the person when every question goes to the local backend: same
@@ -140,12 +144,14 @@ question to the local model, all without changing any decision rule.
   routing decision itself.
 - **FR-017**: A real cloud backend MUST be part of the delivered application, selectable by the routing decision when the cloud is
   on, and it MUST be off by default. Neither the automated tests nor the delivered settings ever call the real cloud service.
+- **FR-018**: Every answer MUST say which backend produced it, local or cloud, so the person can see where it came from; with the
+  delivered settings it always says local.
 
 ### Key Entities *(include if feature involves data)*
 
 - **Model preference**: what the person asked for on a question: Auto (default), Local or Cloud.
-- **Complexity of a question**: a value that says how demanding a question is, compared with the threshold; how it is measured
-  is an open point (see Assumptions).
+- **Complexity of a question**: a value that says how demanding a question is, compared with the threshold; it is measured with
+  the rule confirmed in Assumptions and detailed in the plan.
 - **Routing decision**: the outcome for one question, local or cloud, produced from the document's privacy, the preference, the
   complexity and whether the cloud is on; it is not stored.
 - **Cloud availability setting**: whether the cloud backend is on (off by default), together with its threshold and key,

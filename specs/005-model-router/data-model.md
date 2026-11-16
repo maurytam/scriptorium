@@ -51,7 +51,7 @@ only stored fact used is the existing `Document.IsPrivate` (feature 001).
 |---|---|
 | `AskRequestDto` | new optional `Preference` (string) |
 | `AskResponseDto` | new `Backend` (string: `local` or `cloud`) |
-| `AskResult` | `Success(answer, truncated, backend)`; new `Backend` property |
+| `AskResult` | `Success(answer, truncated, backend = Local)` (the default keeps existing calls and tests unchanged); new `Backend` property |
 | `DocumentQuestionService` | constructor takes `ModelRouter` and `ComplexityScorer` instead of `IAIProvider`; `AskAsync` takes `ModelPreference` |
 
 ## Decision table (what the tests walk through)

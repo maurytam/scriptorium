@@ -48,7 +48,8 @@ Rules that hold in every case:
 - **A private document never reaches the cloud**, with any preference and any complexity, whether the cloud is on or off.
 - With the **delivered settings** (cloud off) a request with `auto` or `local` behaves exactly as before this feature; only
   `backend: "local"` is new in the answer.
-- The order of checks is: question valid → document found → document ready → routing → model. A `404` or a `409` "not ready"
+- The order of checks is: `preference` valid (a `400` comes first, before anything else is read) → question valid → document found
+  → document ready → routing → model. A `404` or a `409` "not ready"
   therefore comes before any routing message, and no model is called when routing refuses.
 - Bodies keep the existing shape `{ "error": "..." }`; the web page shows the text of `400`, `409`, `503` and `504` as it is
   (existing behaviour), so it needs no new message table.
