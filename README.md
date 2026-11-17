@@ -39,10 +39,18 @@ something you can question, summarize and mine for entities.
   based only on the document's text, and it says so when the document does not contain the answer.
   Follow-up questions keep the context of the conversation; **New conversation** starts over, and the
   conversation is forgotten when you close the panel or reload the page.
-- ✍️ **Notes digital signatures in PDFs.** For a digitally signed PDF the extracted text starts with the note
-  "file firmato con firma digitale", followed by the signer's name when the file gives one (from the signature's
-  name field or its certificate, otherwise "firmatario sconosciuto") and by the signing date and time, so you can ask who
-  signed and when. The name is reported as the file declares it, with no validity check.
+- ✍️ **Notes digital signatures in PDF, Word and Excel files.** For a digitally signed file the extracted text starts with
+  one line per signature: "file firmato con firma digitale", followed by the signer's name when the file gives one (in a
+  PDF from the signature's name field or its certificate; in a Word or Excel file from the signer's certificate, otherwise
+  "firmatario sconosciuto") and by the signing date and time, so you can ask who signed and when. The name and date are
+  reported as the file declares them, with no validity check.
+- 🔏 **Shows who signed and when with one click.** Two buttons next to **Summarise**, **Signature author** and
+  **Signature date**, show the signers and the signing dates of a ready PDF, Word or Excel file, read straight from those
+  lines: **no model is called**, so it is instant, works with Ollama switched off and ignores the **Answer with** choice.
+  With several signatures each date says whose it is; a document with no digital signature says so. Nothing is stored and
+  nothing is validated. Two limits: a file with no signature lines in its text shows no signature, so a PDF, Word or Excel
+  file uploaded before its signatures were read has to be deleted and uploaded again; and an unsigned file whose first
+  lines are exactly in the note format followed by a blank line would be taken for signed.
 - 👁 **Shows the extracted text.** A ready document has a **Text** button that opens a read-only popup with the
   extracted text, cut at the same limit the model reads, and it says so ("Showing the first 8,000 of … characters")
   when the text is longer.
@@ -185,6 +193,7 @@ the cloud is still treated as not available. Using it costs money on your Anthro
 | `POST` | `/api/documents/{id}/ask` | Ask a question about a ready document (JSON: `question`, optional `history` of earlier exchanges, optional `preference`: `auto`, `local` or `cloud`). `200` with `answer`, `truncated` and `backend` (`local` or `cloud`), or `400` invalid question or preference, `404` unknown document, `409` document not ready or Cloud chosen for a private document, `503` the model (Ollama, or the cloud when chosen) not available, `504` no answer in time |
 | `POST` | `/api/documents/{id}/summary` | Summarise a ready document: one short paragraph, nothing stored (optional JSON body with `preference`: `auto`, `local` or `cloud`; no body is `auto`). `200` with `summary`, `truncated` and `backend` (`local` or `cloud`), or `400` invalid preference, `404` unknown document, `409` document not ready, too little text to summarise, or Cloud chosen for a private document, `503` the model not available, `504` no answer in time. See [the contract](specs/006-summaries/contracts/summary-api.md) |
 | `POST` | `/api/documents/{id}/entities` | Extract the entities of a ready document: people, organizations, dates, amounts and places, nothing stored (optional JSON body with `preference`: `auto`, `local` or `cloud`; no body is `auto`). `200` with `groups` (only the types found), `truncated` and `backend` (`local` or `cloud`), or `400` invalid preference, `404` unknown document, `409` document not ready, too little text, or Cloud chosen for a private document, `503` the model not available, `504` no answer in time, `500` the reply could not be read. See [the contract](specs/007-entity-extraction/contracts/entities-api.md) |
+| `GET` | `/api/documents/{id}/signatures` | The digital signatures recorded for a ready document, as its file declares them: `200` with `signatures`, each with `signer` and `signedAt` (both can be `null`; an empty list means no digital signature; only PDF, Word and Excel files can have one), or `404` unknown document, `409` document not ready, `500` the text is not available. No model is called. See [the contract](specs/009-signature-buttons/contracts/signatures-api.md) |
 | `GET` | `/api/documents/ask/limits` | Longest accepted question, from `Qa:MaxQuestionLength` (the web page uses it for its character counter) |
 
 The full contracts are in [`specs/001-document-upload-parsing/contracts/documents-api.md`](specs/001-document-upload-parsing/contracts/documents-api.md),
@@ -246,7 +255,8 @@ The second feature, asking questions about a document, is in
 [`specs/002-ask-document-questions/`](specs/002-ask-document-questions/). The model router is in
 [`specs/005-model-router/`](specs/005-model-router/), the summaries in
 [`specs/006-summaries/`](specs/006-summaries/) and the entity extraction in
-[`specs/007-entity-extraction/`](specs/007-entity-extraction/). The Docker setup is in
+[`specs/007-entity-extraction/`](specs/007-entity-extraction/). The signature buttons are in
+[`specs/009-signature-buttons/`](specs/009-signature-buttons/). The Docker setup is in
 [`specs/008-docker-compose/`](specs/008-docker-compose/) (specification only: its plan and tasks were skipped).
 
 Each feature is built on its own branch and merged through a pull request. Project conventions

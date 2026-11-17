@@ -7,6 +7,7 @@ import {
   AskResponse,
   DocumentDetails,
   EntitiesResponse,
+  SignaturesResponse,
   DocumentSummary,
   SummaryResponse,
   TextPreview,
@@ -321,5 +322,34 @@ describe('DocumentApiService', () => {
       .flush({ error: 'The document has too little text to extract entities from.' }, { status: 409, statusText: 'Conflict' });
     expect(failure?.status).toBe(409);
     expect((failure?.error as { error: string }).error).toBe('The document has too little text to extract entities from.');
+  });
+
+  it('asks for the signatures of a document with a GET and no body', () => {
+    const body: SignaturesResponse = {
+      signatures: [
+        { signer: 'Mario Rossi', signedAt: '2026-03-14 10:32:00 +01:00' },
+        { signer: null, signedAt: null },
+      ],
+    };
+    let received: SignaturesResponse | undefined;
+
+    service.getSignatures('abc').subscribe((r) => (received = r));
+
+    const request = http.expectOne('/api/documents/abc/signatures');
+    expect(request.request.method).toBe('GET');
+    request.flush(body);
+    expect(received).toEqual(body);
+  });
+
+  it('propagates a failed signatures request with its status and message', () => {
+    let failure: HttpErrorResponse | undefined;
+
+    service.getSignatures('abc').subscribe({ error: (e: HttpErrorResponse) => (failure = e) });
+
+    http
+      .expectOne('/api/documents/abc/signatures')
+      .flush({ error: 'The document is not ready. Current status: processing.' }, { status: 409, statusText: 'Conflict' });
+    expect(failure?.status).toBe(409);
+    expect((failure?.error as { error: string }).error).toBe('The document is not ready. Current status: processing.');
   });
 });

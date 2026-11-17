@@ -10,6 +10,7 @@ import {
   DocumentDetails,
   DocumentSummary,
   EntitiesResponse,
+  SignaturesResponse,
   SummaryResponse,
   TextPreview,
   UploadEvent,
@@ -69,6 +70,11 @@ export class DocumentApiService {
   /** The key entities of a ready document, found by the model the preference allows. Nothing is stored. */
   extractEntities(id: string, preference: AskPreference = 'auto'): Observable<EntitiesResponse> {
     return this.http.post<EntitiesResponse>(`${DOCUMENTS_URL}/${id}/entities`, { preference });
+  }
+
+  /** The digital signatures recorded for a ready document, as its file declares them. No model is involved. */
+  getSignatures(id: string): Observable<SignaturesResponse> {
+    return this.http.get<SignaturesResponse>(`${DOCUMENTS_URL}/${id}/signatures`);
   }
 
   /** The extracted text of a ready document, already cut by the server; read-only. */

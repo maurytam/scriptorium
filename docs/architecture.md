@@ -23,9 +23,9 @@ endpoint reads the request, calls one Core service and maps its `Result` to an H
 
 | Project | Holds |
 |---|---|
-| `Scriptorium.Core` | `Document` and `ExtractedText`, the interfaces below, the services (use cases) including `DocumentQuestionService`, `DocumentSummaryService`, `DocumentEntityService`, `ModelRouter` and `ComplexityScorer`, the pieces the use cases share (`ReadyDocumentText`, `RoutedDocument`, `AskFailureMapper`, `PromptDocumentBlock`), the entity pieces (`EntityPromptBuilder`, `EntityReplyParser`, `EntityVerifier`, `EntityType`, `EntityResult`), `Result<T>` and the typed results, DTOs, `QaOptions`, `RoutingOptions` |
-| `Scriptorium.Infrastructure` | the four parsers, `DocumentRepository` (EF Core), `LocalFileStore`, `DocumentProcessingQueue`, `OllamaProvider`, `ClaudeProvider` |
-| `Scriptorium.API` | `DocumentEndpoints`, `QuestionEndpoints`, `SummaryEndpoints`, `EntityEndpoints`, the helpers the question, summary and entity endpoints use (`ModelPreferenceParser`, `AskFailureResponses`), `GlobalExceptionHandler`, `Program.cs` |
+| `Scriptorium.Core` | `Document` and `ExtractedText`, the interfaces below, the services (use cases) including `DocumentQuestionService`, `DocumentSummaryService`, `DocumentEntityService`, `ModelRouter` and `ComplexityScorer`, the pieces the use cases share (`ReadyDocumentText`, `RoutedDocument`, `AskFailureMapper`, `PromptDocumentBlock`), the signature pieces (`SignatureNote`, the one definition of the signature line, `DocumentSignatureService`, `SignatureResult`), the entity pieces (`EntityPromptBuilder`, `EntityReplyParser`, `EntityVerifier`, `EntityType`, `EntityResult`), `Result<T>` and the typed results, DTOs, `QaOptions`, `RoutingOptions` |
+| `Scriptorium.Infrastructure` | the four parsers (the Word and Excel ones wrapped by `SignedOfficeDocumentParser`, with `OfficeSignatureNoteReader`), `DocumentRepository` (EF Core), `LocalFileStore`, `DocumentProcessingQueue`, `OllamaProvider`, `ClaudeProvider` |
+| `Scriptorium.API` | `DocumentEndpoints`, `QuestionEndpoints`, `SummaryEndpoints`, `EntityEndpoints`, `SignatureEndpoints`, the helpers the question, summary and entity endpoints use (`ModelPreferenceParser`, `AskFailureResponses`), `GlobalExceptionHandler`, `Program.cs` |
 | `Scriptorium.Web` | the Angular app (standalone components and signals) |
 
 ## 2. The interfaces that matter
@@ -105,6 +105,12 @@ sequenceDiagram
 - Any unexpected error while processing marks that document `Failed` and the worker keeps going.
 - A digitally signed PDF gets a note at the start of its text (who signed and when), built by `PdfSignatureNoteReader` from
   `SignerNameReader`, which in turn reads the certificate with `CmsSignerCertificateReader`; the signature is not validated.
+- A signed Word or Excel file gets the same lines: `SignedOfficeDocumentParser` wraps the plain parser and puts in front of its
+  text one line per signature read by `OfficeSignatureNoteReader` (the signature parts of the package, read as XML with DTDs
+  prohibited; the signer is the common name of the signer's own certificate, not an authority of the chain; the date is the Office
+  `SignatureTime`, or the XAdES `SigningTime` when only that is there). An unsigned file gives exactly the plain parser's text, and
+  a signature that cannot be read adds no line and never fails the upload. The wording and layout of the line are defined once, in
+  `SignatureNote` (Core), which both writers use and the signature buttons read back (section 4.6).
 
 ### 4.2 Asking a question
 
@@ -237,6 +243,36 @@ sequenceDiagram
   not be extracted.") when no line makes sense. A type with no entity is not in the response.
 - **Same cut as the questions:** `TextExcerpt.Of(text, Qa:MaxDocumentCharacters)`; the page says so when `truncated`.
 
+### 4.6 Reading the signatures
+
+```mermaid
+sequenceDiagram
+    participant UI as Web (ask panel, Signature author / date)
+    participant EP as SignatureEndpoints
+    participant SS as DocumentSignatureService
+    participant RT as ReadyDocumentText
+    participant SN as SignatureNote
+    UI->>EP: GET /api/documents/{id}/signatures
+    EP->>SS: ReadAsync
+    SS->>RT: LoadAsync (found? ready? the whole stored text and the file type)
+    RT-->>SS: the text and its type, or 404/409/500
+    SS->>SN: CanBeSigned(type)? then ReadLeading(text)
+    SN-->>SS: the entries, in the order of the file (maybe none)
+    SS-->>EP: SignatureResult
+    EP-->>UI: 200 signatures (signer, signedAt), or 404/409/500
+```
+
+- **No model.** The router, the scorer and the providers are not involved, so it is instant, needs no Ollama and sends nothing
+  anywhere; the page ignores the **Answer with** choice for these two buttons.
+- **Read from the text, not from the file.** The signature lines were written at upload (4.1) at the start of the stored text, so the
+  original file is never opened again. `SignatureNote.ReadLeading` takes the lines from the first line on, until a blank line or the
+  end of the text; the same wording further down, or in a text file, is not a signature. Only `pdf`, `docx` and `xlsx` are looked at.
+- **The whole text is read**, not the part a model would read, so a long document still shows its signatures.
+- **Nothing is stored and nothing is validated:** the name and date are what the file declares (the page says so). A document with no
+  line gives an empty list ("no digital signature"); a document uploaded before its signatures were read has no line either.
+- **Known limit:** nothing but the text is kept, so an unsigned file whose first lines are exactly in the note format followed by a blank
+  line would be taken for signed. Telling them apart would need stored metadata (a migration); the project chose to store nothing.
+
 ## 5. Cross-cutting rules
 
 - **Errors as values.** Services and interfaces in Core return `Result`, `Result<T>` or a typed result (`UploadResult`,
@@ -260,7 +296,7 @@ Standalone Angular components with signals, no state library.
 | `DocumentApiService` | The only place that calls the API (`HttpClient`) |
 | `upload` | File picker, Private flag, progress and error messages |
 | `document-list` | The list (refreshes while a document is processing), Ask, Text and Delete buttons |
-| `ask-panel` + `ConversationSelectionService` | The question panel and its **Answer with** selector (Auto, Local, Cloud); the conversation and the choice live in the component and are forgotten on close or reload. A **Summarise** button and an **Extract entities** button next to **Send** ask for a summary or the entities of the open document with the same selector; each is a card above the conversation (the entities as one block per type), never part of the history sent with a question, and is dropped with the conversation; asking again replaces only that button's own card, so a summary and the entities can be on the page together. It sends the preference and shows `backend` and the `truncated` note; it decides nothing |
+| `ask-panel` + `ConversationSelectionService` | The question panel and its **Answer with** selector (Auto, Local, Cloud); the conversation and the choice live in the component and are forgotten on close or reload. Two more buttons, **Signature author** and **Signature date**, ask the server for the signatures of the open document (no model, so the selector does not apply) and show the signers or the dates in their own cards. A **Summarise** button and an **Extract entities** button next to **Send** ask for a summary or the entities of the open document with the same selector; each is a card above the conversation (the entities as one block per type), never part of the history sent with a question, and is dropped with the conversation; asking again replaces only that button's own card, so a summary and the entities can be on the page together. It sends the preference and shows `backend` and the `truncated` note; it decides nothing |
 | `text-popup` + `TextPopupSelectionService` | The read-only popup on a native `<dialog>`; it shows what the server sends and does no cutting |
 
 Components are thin views: the cut, the limits and the rules live on the server. In development `ng serve` proxies `/api` to

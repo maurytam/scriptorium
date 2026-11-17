@@ -37,8 +37,12 @@ builder.Services.AddSingleton<ICmsSignerCertificateReader, CmsSignerCertificateR
 builder.Services.AddSingleton<ISignerNameReader, SignerNameReader>();
 builder.Services.AddSingleton<IPdfSignatureNoteReader, PdfSignatureNoteReader>();
 builder.Services.AddSingleton<IDocumentParser, PdfDocumentParser>();
-builder.Services.AddSingleton<IDocumentParser, WordDocumentParser>();
-builder.Services.AddSingleton<IDocumentParser, ExcelDocumentParser>();
+builder.Services.AddSingleton<IOfficeSignatureNoteReader, OfficeSignatureNoteReader>();
+// Word and Excel parsers are wrapped so the digital signatures are recorded at the start of their text, as for PDFs.
+builder.Services.AddSingleton<IDocumentParser>(sp =>
+    new SignedOfficeDocumentParser(new WordDocumentParser(), sp.GetRequiredService<IOfficeSignatureNoteReader>()));
+builder.Services.AddSingleton<IDocumentParser>(sp =>
+    new SignedOfficeDocumentParser(new ExcelDocumentParser(), sp.GetRequiredService<IOfficeSignatureNoteReader>()));
 builder.Services.AddSingleton<IDocumentParser, TextDocumentParser>();
 
 builder.Services.AddSingleton(ollamaOptions);
@@ -67,6 +71,7 @@ builder.Services.AddSingleton<SummaryPromptBuilder>();
 builder.Services.AddSingleton<DocumentSummaryService>();
 builder.Services.AddSingleton<EntityPromptBuilder>();
 builder.Services.AddSingleton<DocumentEntityService>();
+builder.Services.AddSingleton<DocumentSignatureService>();
 builder.Services.AddSingleton<DocumentTextPreviewService>();
 builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = maxSizeBytes + DocumentEndpoints.MultipartOverheadBytes);
@@ -85,6 +90,7 @@ app.MapDocumentEndpoints(maxSizeBytes);
 app.MapQuestionEndpoints();
 app.MapSummaryEndpoints();
 app.MapEntityEndpoints();
+app.MapSignatureEndpoints();
 
 app.Run();
 

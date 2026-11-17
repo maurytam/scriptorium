@@ -7,10 +7,11 @@ namespace Scriptorium.Core.Services;
 /// <summary>The text of a ready document, or the reason it cannot be had. It is its own result.</summary>
 public sealed class ReadyDocumentText
 {
-    private ReadyDocumentText(string? value, bool isPrivate, AskFailureKind failureKind, string? error)
+    private ReadyDocumentText(string? value, bool isPrivate, string fileType, AskFailureKind failureKind, string? error)
     {
         Value = value;
         IsPrivate = isPrivate;
+        FileType = fileType;
         FailureKind = failureKind;
         Error = error;
     }
@@ -18,6 +19,9 @@ public sealed class ReadyDocumentText
     public string? Value { get; }
 
     public bool IsPrivate { get; }
+
+    /// <summary>The type recorded for the document at upload (<c>pdf</c>, <c>docx</c>...); empty when the load failed.</summary>
+    public string FileType { get; }
 
     public AskFailureKind FailureKind { get; }
 
@@ -46,8 +50,8 @@ public sealed class ReadyDocumentText
         var extracted = await repository.GetExtractedTextAsync(documentId, ct);
         return extracted is null
             ? Failed(AskFailureKind.Internal, "The text of the document is not available.")
-            : new ReadyDocumentText(extracted.Content, document.IsPrivate, default, null);
+            : new ReadyDocumentText(extracted.Content, document.IsPrivate, document.FileType, default, null);
     }
 
-    private static ReadyDocumentText Failed(AskFailureKind kind, string error) => new(null, false, kind, error);
+    private static ReadyDocumentText Failed(AskFailureKind kind, string error) => new(null, false, string.Empty, kind, error);
 }
