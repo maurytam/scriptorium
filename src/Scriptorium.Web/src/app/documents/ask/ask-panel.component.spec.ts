@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
-import { AskLimits, AskResponse, DocumentSummary, SummaryResponse } from '../document.models';
+import { AskLimits, AskResponse, DocumentSummary, EntitiesResponse, SummaryResponse } from '../document.models';
 import { AskPanelComponent } from './ask-panel.component';
 import { ConversationSelectionService } from './conversation-selection.service';
 
@@ -23,7 +23,7 @@ describe('AskPanelComponent', () => {
   let api: jasmine.SpyObj<DocumentApiService>;
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['ask', 'getAskLimits', 'summarize']);
+    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['ask', 'getAskLimits', 'summarize', 'extractEntities']);
     api.getAskLimits.and.returnValue(of({ maxQuestionLength: 2000 }));
     await TestBed.configureTestingModule({
       imports: [AskPanelComponent],
@@ -852,6 +852,399 @@ describe('AskPanelComponent', () => {
         expect(root().querySelector('[role=alert]')?.textContent).toContain(expected);
         expect(summaryCard()).toBeNull();
         expect(summariseButton()!.disabled).toBeFalse();
+      });
+    });
+  });
+
+  describe('entities', () => {
+    const extractButton = () =>
+      Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Extract entities') as
+        | HTMLButtonElement
+        | undefined;
+    const summariseButton = () =>
+      Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Summarise') as
+        | HTMLButtonElement
+        | undefined;
+    const card = () => root().querySelector('.entities');
+    const headings = () => Array.from(card()?.querySelectorAll('.entity-group h4') ?? []).map((h) => h.textContent?.trim());
+    const items = (i: number) =>
+      Array.from(card()?.querySelectorAll('.entity-group')[i]?.querySelectorAll('li') ?? []).map((li) => li.textContent?.trim());
+    const entitiesOf = (
+      groups: EntitiesResponse['groups'] = [
+        { type: 'people', entities: ['Mario Rossi', 'Anna Bianchi'] },
+        { type: 'dates', entities: ['12 March 2026'] },
+      ],
+      backend: EntitiesResponse['backend'] = 'local',
+    ): EntitiesResponse => ({ groups, truncated: false, backend });
+    const extract = () => {
+      extractButton()!.click();
+      fixture.detectChanges();
+    };
+    const newConversation = () =>
+      Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'New conversation');
+
+    it('offers an Extract entities button next to Summarise once a document is open', () => {
+      expect(extractButton()).toBeUndefined();
+
+      open();
+
+      expect(extractButton()).toBeDefined();
+      expect(extractButton()!.disabled).toBeFalse();
+      expect(extractButton()!.previousElementSibling).toBe(summariseButton() as Element);
+    });
+
+    it('extracts the entities of the open document and shows one block per type found, with the label', () => {
+      api.extractEntities.and.returnValue(of(entitiesOf()));
+      open('report');
+
+      extract();
+
+      expect(api.extractEntities).toHaveBeenCalledOnceWith('report', 'auto');
+      expect(card()?.querySelector('h3')?.textContent).toContain('Entities');
+      expect(headings()).toEqual(['People', 'Dates']);
+      expect(items(0)).toEqual(['Mario Rossi', 'Anna Bianchi']);
+      expect(items(1)).toEqual(['12 March 2026']);
+      expect(card()?.textContent).toContain('Answered on this computer');
+    });
+
+    it('shows the five headings in the order received and none for a type that is absent', () => {
+      api.extractEntities.and.returnValue(
+        of(
+          entitiesOf([
+            { type: 'people', entities: ['A'] },
+            { type: 'organizations', entities: ['B'] },
+            { type: 'dates', entities: ['C'] },
+            { type: 'amounts', entities: ['D'] },
+            { type: 'places', entities: ['E'] },
+          ]),
+        ),
+      );
+      open();
+
+      extract();
+
+      expect(headings()).toEqual(['People', 'Organizations', 'Dates', 'Amounts', 'Places']);
+
+      api.extractEntities.and.returnValue(of(entitiesOf([{ type: 'places', entities: ['Turin'] }])));
+      extract();
+
+      expect(headings()).toEqual(['Places']);
+    });
+
+    it('says when the cloud model did the work', () => {
+      api.extractEntities.and.returnValue(of(entitiesOf(undefined, 'cloud')));
+      open();
+
+      extract();
+
+      expect(card()?.textContent).toContain('Answered by the cloud model');
+    });
+
+    it('says that nothing was found, with no heading', () => {
+      api.extractEntities.and.returnValue(of(entitiesOf([])));
+      open();
+
+      extract();
+
+      expect(card()?.textContent).toContain('No entities were found in this document.');
+      expect(headings()).toEqual([]);
+    });
+
+    it('shows a long list in full, as a list', () => {
+      const names = Array.from({ length: 60 }, (_, i) => `Person ${i + 1}`);
+      api.extractEntities.and.returnValue(of(entitiesOf([{ type: 'people', entities: names }])));
+      open();
+
+      extract();
+
+      expect(items(0)).toEqual(names);
+      expect(card()?.querySelectorAll('.entity-group ul').length).toBe(1);
+    });
+
+    it('shows the progress and disables Send, Summarise and Extract entities while it works', () => {
+      api.extractEntities.and.returnValue(new Subject<EntitiesResponse>());
+      open();
+      type('Who signed?');
+
+      extract();
+
+      expect(root().querySelector('progress')).toBeTruthy();
+      expect(extractButton()!.disabled).toBeTrue();
+      expect(summariseButton()!.disabled).toBeTrue();
+      expect(sendButton().disabled).toBeTrue();
+    });
+
+    it('disables Extract entities while a summary works', () => {
+      api.summarize.and.returnValue(new Subject<SummaryResponse>());
+      open();
+
+      summariseButton()!.click();
+      fixture.detectChanges();
+
+      expect(extractButton()!.disabled).toBeTrue();
+    });
+
+    it('does nothing when it is pressed again while it works', () => {
+      api.extractEntities.and.returnValue(new Subject<EntitiesResponse>());
+      open();
+
+      extract();
+      component.extractEntities();
+
+      expect(api.extractEntities).toHaveBeenCalledTimes(1);
+    });
+
+    it('is not part of the history sent with the next question, and a question still works while it is shown', () => {
+      api.extractEntities.and.returnValue(of(entitiesOf()));
+      api.ask.and.returnValue(of(answer('Maria Rossi.')));
+      open('report');
+      extract();
+
+      type('Who signed?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      expect(api.ask).toHaveBeenCalledOnceWith('report', 'Who signed?', [], 'auto');
+      expect(text()).toContain('Maria Rossi.');
+      expect(card()?.textContent).toContain('Mario Rossi');
+    });
+
+    it('can be on the screen together with a summary, and asking again replaces only its own card', () => {
+      api.summarize.and.returnValue(of({ summary: 'A short paragraph.', truncated: false, backend: 'local' }));
+      api.extractEntities.and.returnValues(of(entitiesOf()), of(entitiesOf([{ type: 'places', entities: ['Turin'] }])));
+      open();
+
+      summariseButton()!.click();
+      fixture.detectChanges();
+      extract();
+
+      expect(root().querySelector('.summary')).toBeTruthy();
+      expect(card()).toBeTruthy();
+
+      extract();
+
+      expect(root().querySelector('.summary')?.textContent).toContain('A short paragraph.');
+      expect(headings()).toEqual(['Places']);
+    });
+
+    it('is removed when another document is opened, and a late result for the first one is dropped', () => {
+      const late = new Subject<EntitiesResponse>();
+      api.extractEntities.and.returnValues(of(entitiesOf()), late);
+      open('a');
+      extract();
+      expect(card()).toBeTruthy();
+
+      open('b');
+      expect(card()).toBeNull();
+
+      extract();
+      open('c');
+      late.next(entitiesOf([{ type: 'people', entities: ['Late Person'] }]));
+      fixture.detectChanges();
+
+      expect(text()).not.toContain('Late Person');
+      expect(component.waiting()).toBeFalse();
+    });
+
+    it('is removed when the panel is closed', () => {
+      api.extractEntities.and.returnValue(of(entitiesOf()));
+      open('a');
+      extract();
+
+      selection.close();
+      settle();
+      open('a');
+
+      expect(card()).toBeNull();
+    });
+
+    describe('with the Answer with selector', () => {
+      const selector = () => root().querySelector('select') as HTMLSelectElement;
+      const choose = (value: string) => {
+        selector().value = value;
+        selector().dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+      };
+
+      it('sends the preference chosen in the selector, and leaves Cloud selectable', () => {
+        api.extractEntities.and.returnValue(of(entitiesOf()));
+        open('report');
+        const cloud = Array.from(selector().options).find((o) => o.value === 'cloud');
+        expect(cloud?.disabled).toBeFalse();
+
+        choose('local');
+        extract();
+        choose('cloud');
+        extract();
+
+        expect(api.extractEntities.calls.allArgs()).toEqual([
+          ['report', 'local'],
+          ['report', 'cloud'],
+        ]);
+      });
+
+      it('shows a refusal about the cloud being unavailable as it is and leaves no card', () => {
+        const message =
+          'The cloud model is not available. It is switched off or not set up. Choose Auto or Local to be answered on this computer.';
+        api.extractEntities.and.returnValue(throwError(() => new HttpErrorResponse({ status: 503, error: { error: message } })));
+        open();
+        choose('cloud');
+
+        extract();
+
+        expect(root().querySelector('[role=alert]')?.textContent).toContain(message);
+        expect(card()).toBeNull();
+        expect(selector().value).toBe('cloud');
+      });
+
+      it('shows a refusal about a private document as it is and leaves no card', () => {
+        const message = 'This document is private, so it can only be answered on this computer. Choose Auto or Local.';
+        api.extractEntities.and.returnValue(throwError(() => new HttpErrorResponse({ status: 409, error: { error: message } })));
+        open();
+        choose('cloud');
+
+        extract();
+
+        expect(root().querySelector('[role=alert]')?.textContent).toContain(message);
+        expect(card()).toBeNull();
+      });
+
+      it('goes back to Auto when another document is opened, with or without entities', () => {
+        api.extractEntities.and.returnValue(of(entitiesOf()));
+        open('a');
+        choose('cloud');
+        open('b');
+        expect(selector().value).toBe('auto');
+
+        choose('local');
+        extract();
+        open('c');
+
+        expect(selector().value).toBe('auto');
+        expect(component.preference()).toBe('auto');
+      });
+
+      it('goes back to Auto when the panel is closed and opened again', () => {
+        open('a');
+        choose('cloud');
+
+        selection.close();
+        settle();
+        open('a');
+
+        expect(selector().value).toBe('auto');
+      });
+
+      it('goes back to Auto on New conversation, whether the entities or a question made it available', () => {
+        api.extractEntities.and.returnValue(of(entitiesOf()));
+        api.ask.and.returnValue(of(answer()));
+        open();
+        choose('local');
+        extract();
+        newConversation()!.click();
+        fixture.detectChanges();
+        expect(selector().value).toBe('auto');
+
+        choose('cloud');
+        type('Who signed?');
+        sendButton().click();
+        fixture.detectChanges();
+        newConversation()!.click();
+        fixture.detectChanges();
+
+        expect(selector().value).toBe('auto');
+        expect(component.preference()).toBe('auto');
+      });
+    });
+
+    describe('when the document was too long to be read in full', () => {
+      const note = () => card()?.querySelector('.notice') ?? null;
+      const NOTE = 'These entities are based only on the first part of the document, which is too long to be read in full.';
+
+      it('says the entities are based only on the first part', () => {
+        api.extractEntities.and.returnValue(of({ ...entitiesOf(), truncated: true }));
+        open();
+
+        extract();
+
+        expect(note()?.textContent).toContain(NOTE);
+        expect(note()?.getAttribute('role')).toBe('note');
+      });
+
+      it('shows no note for a document that was read in full', () => {
+        api.extractEntities.and.returnValue(of(entitiesOf()));
+        open();
+
+        extract();
+
+        expect(card()).toBeTruthy();
+        expect(note()).toBeNull();
+        expect(text()).not.toContain('only on the first part');
+      });
+
+      it('also says it when nothing was found in the part that was read', () => {
+        api.extractEntities.and.returnValue(of({ ...entitiesOf([]), truncated: true }));
+        open();
+
+        extract();
+
+        expect(note()?.textContent).toContain(NOTE);
+        expect(card()?.textContent).toContain('No entities were found in this document.');
+      });
+
+      it('shows no note when the request failed', () => {
+        api.extractEntities.and.returnValue(throwError(() => new HttpErrorResponse({ status: 503, error: { error: 'Not available.' } })));
+        open();
+
+        extract();
+
+        expect(note()).toBeNull();
+        expect(text()).not.toContain('only on the first part');
+      });
+
+      it('drops the note together with the card', () => {
+        api.extractEntities.and.returnValue(of({ ...entitiesOf(), truncated: true }));
+        open('a');
+        extract();
+
+        open('b');
+
+        expect(note()).toBeNull();
+      });
+    });
+
+    it('offers New conversation when only the entities are shown, and New conversation removes them', () => {
+      api.extractEntities.and.returnValue(of(entitiesOf()));
+      open();
+      expect(newConversation()).toBeUndefined();
+
+      extract();
+      expect(newConversation()).toBeDefined();
+      newConversation()!.click();
+      fixture.detectChanges();
+
+      expect(card()).toBeNull();
+      expect(newConversation()).toBeUndefined();
+    });
+
+    const failures: [string, number, unknown, string][] = [
+      ['a document that is not ready (409)', 409, { error: 'The document is not ready. Current status: failed.' }, 'Current status: failed.'],
+      ['too little text (409)', 409, { error: 'The document has too little text to extract entities from.' }, 'too little text to extract entities from'],
+      ['a model that is not available (503)', 503, { error: 'The answering model is not available.' }, 'The answering model is not available.'],
+      ['a document that is gone (404)', 404, { error: 'Document not found.' }, 'This document no longer exists. Close this panel and choose another one.'],
+      ['an unexpected error (500)', 500, { error: 'The entities could not be extracted.' }, 'The question could not be answered'],
+    ];
+
+    failures.forEach(([name, status, body, expected]) => {
+      it(`shows the same alert as a failed question for ${name} and no card`, () => {
+        api.extractEntities.and.returnValue(throwError(() => new HttpErrorResponse({ status, error: body })));
+        open();
+
+        extract();
+
+        expect(root().querySelector('[role=alert]')?.textContent).toContain(expected);
+        expect(card()).toBeNull();
+        expect(extractButton()!.disabled).toBeFalse();
       });
     });
   });

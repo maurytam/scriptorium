@@ -1,11 +1,20 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { Component, WritableSignal, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Observable, Subscription } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
-import { AskPreference, AskResponse, SummaryResponse } from '../document.models';
+import { AskPreference, AskResponse, EntitiesResponse, EntityType, SummaryResponse } from '../document.models';
 import { describeAskFailure } from './ask-failure-message';
 import { ConversationSelectionService } from './conversation-selection.service';
+
+// The headings of the five types; the server decides which ones are present and in what order.
+const GROUP_TITLES: Record<EntityType, string> = {
+  people: 'People',
+  organizations: 'Organizations',
+  dates: 'Dates',
+  amounts: 'Amounts',
+  places: 'Places',
+};
 
 interface Exchange {
   question: string;
@@ -32,6 +41,7 @@ export class AskPanelComponent {
   readonly waiting = signal(false);
   // Shown above the conversation and never part of the history sent with a question.
   readonly summary = signal<SummaryResponse | null>(null);
+  readonly entities = signal<EntitiesResponse | null>(null);
   readonly errorMessage = signal<string | null>(null);
   readonly maxQuestionLength = signal<number | null>(null);
   // The server trims the question before measuring it, so the counter does the same.
@@ -63,6 +73,10 @@ export class AskPanelComponent {
 
   onPreferenceChange(event: Event): void {
     this.preference.set((event.target as HTMLSelectElement).value as AskPreference);
+  }
+
+  groupTitle(type: EntityType): string {
+    return GROUP_TITLES[type];
   }
 
   backendLabel(item: { backend: AskResponse['backend'] }): string {
@@ -107,23 +121,16 @@ export class AskPanelComponent {
 
   summarize(): void {
     const document = this.document();
-    if (!document || this.waiting()) {
-      return;
+    if (document) {
+      this.show(this.summary, () => this.api.summarize(document.id, this.preference()));
     }
+  }
 
-    this.waiting.set(true);
-    this.errorMessage.set(null);
-    this.summary.set(null);
-    this.pending = this.api.summarize(document.id, this.preference()).subscribe({
-      next: (response) => {
-        this.summary.set(response);
-        this.waiting.set(false);
-      },
-      error: (error: HttpErrorResponse) => {
-        this.errorMessage.set(describeAskFailure(error));
-        this.waiting.set(false);
-      },
-    });
+  extractEntities(): void {
+    const document = this.document();
+    if (document) {
+      this.show(this.entities, () => this.api.extractEntities(document.id, this.preference()));
+    }
   }
 
   close(): void {
@@ -132,6 +139,28 @@ export class AskPanelComponent {
 
   newConversation(): void {
     this.reset();
+  }
+
+  // Asks the server for something that has its own card: one request at a time, a late result is dropped on reset,
+  // and a failure is an alert like a failed question. The card of this request is cleared when it starts.
+  private show<T>(card: WritableSignal<T | null>, request: () => Observable<T>): void {
+    if (this.waiting()) {
+      return;
+    }
+
+    this.waiting.set(true);
+    this.errorMessage.set(null);
+    card.set(null);
+    this.pending = request().subscribe({
+      next: (response) => {
+        card.set(response);
+        this.waiting.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage.set(describeAskFailure(error));
+        this.waiting.set(false);
+      },
+    });
   }
 
   // Read each time a conversation opens, so a limit changed in the server settings shows up without a reload.
@@ -150,6 +179,7 @@ export class AskPanelComponent {
     this.pending = null;
     this.transcript.set([]);
     this.summary.set(null);
+    this.entities.set(null);
     this.question.set('');
     this.preference.set('auto');
     this.errorMessage.set(null);

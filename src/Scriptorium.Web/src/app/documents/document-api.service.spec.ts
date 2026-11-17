@@ -6,6 +6,7 @@ import { DocumentApiService } from './document-api.service';
 import {
   AskResponse,
   DocumentDetails,
+  EntitiesResponse,
   DocumentSummary,
   SummaryResponse,
   TextPreview,
@@ -283,5 +284,42 @@ describe('DocumentApiService', () => {
       .flush({ error: 'The document has too little text to summarise.' }, { status: 409, statusText: 'Conflict' });
     expect(failure?.status).toBe(409);
     expect((failure?.error as { error: string }).error).toBe('The document has too little text to summarise.');
+  });
+
+  it('asks for the entities of a document with the automatic preference by default', () => {
+    const entities: EntitiesResponse = {
+      groups: [{ type: 'people', entities: ['Mario Rossi'] }],
+      truncated: false,
+      backend: 'local',
+    };
+    let received: EntitiesResponse | undefined;
+
+    service.extractEntities('abc').subscribe((e) => (received = e));
+
+    const request = http.expectOne('/api/documents/abc/entities');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ preference: 'auto' });
+    request.flush(entities);
+    expect(received).toEqual(entities);
+  });
+
+  it('sends the chosen preference with the entities request', () => {
+    service.extractEntities('abc', 'cloud').subscribe();
+
+    const request = http.expectOne('/api/documents/abc/entities');
+    expect(request.request.body).toEqual({ preference: 'cloud' });
+    request.flush({ groups: [], truncated: false, backend: 'cloud' });
+  });
+
+  it('propagates a failed entities request with its status and message', () => {
+    let failure: HttpErrorResponse | undefined;
+
+    service.extractEntities('abc').subscribe({ error: (e: HttpErrorResponse) => (failure = e) });
+
+    http
+      .expectOne('/api/documents/abc/entities')
+      .flush({ error: 'The document has too little text to extract entities from.' }, { status: 409, statusText: 'Conflict' });
+    expect(failure?.status).toBe(409);
+    expect((failure?.error as { error: string }).error).toBe('The document has too little text to extract entities from.');
   });
 });

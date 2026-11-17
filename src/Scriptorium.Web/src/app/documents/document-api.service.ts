@@ -9,6 +9,7 @@ import {
   AskResponse,
   DocumentDetails,
   DocumentSummary,
+  EntitiesResponse,
   SummaryResponse,
   TextPreview,
   UploadEvent,
@@ -63,6 +64,11 @@ export class DocumentApiService {
   /** A short summary of a ready document, written by the model the preference allows. Nothing is stored. */
   summarize(id: string, preference: AskPreference = 'auto'): Observable<SummaryResponse> {
     return this.http.post<SummaryResponse>(`${DOCUMENTS_URL}/${id}/summary`, { preference });
+  }
+
+  /** The key entities of a ready document, found by the model the preference allows. Nothing is stored. */
+  extractEntities(id: string, preference: AskPreference = 'auto'): Observable<EntitiesResponse> {
+    return this.http.post<EntitiesResponse>(`${DOCUMENTS_URL}/${id}/entities`, { preference });
   }
 
   /** The extracted text of a ready document, already cut by the server; read-only. */

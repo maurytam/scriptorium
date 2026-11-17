@@ -23,9 +23,9 @@ endpoint reads the request, calls one Core service and maps its `Result` to an H
 
 | Project | Holds |
 |---|---|
-| `Scriptorium.Core` | `Document` and `ExtractedText`, the interfaces below, the services (use cases) including `DocumentQuestionService`, `DocumentSummaryService`, `ModelRouter` and `ComplexityScorer`, the pieces the two use cases share (`ReadyDocumentText`, `AskFailureMapper`, `PromptDocumentBlock`), `Result<T>` and the typed results, DTOs, `QaOptions`, `RoutingOptions` |
+| `Scriptorium.Core` | `Document` and `ExtractedText`, the interfaces below, the services (use cases) including `DocumentQuestionService`, `DocumentSummaryService`, `DocumentEntityService`, `ModelRouter` and `ComplexityScorer`, the pieces the use cases share (`ReadyDocumentText`, `RoutedDocument`, `AskFailureMapper`, `PromptDocumentBlock`), the entity pieces (`EntityPromptBuilder`, `EntityReplyParser`, `EntityVerifier`, `EntityType`, `EntityResult`), `Result<T>` and the typed results, DTOs, `QaOptions`, `RoutingOptions` |
 | `Scriptorium.Infrastructure` | the four parsers, `DocumentRepository` (EF Core), `LocalFileStore`, `DocumentProcessingQueue`, `OllamaProvider`, `ClaudeProvider` |
-| `Scriptorium.API` | `DocumentEndpoints`, `QuestionEndpoints`, `SummaryEndpoints`, the helpers both question and summary endpoints use (`ModelPreferenceParser`, `AskFailureResponses`), `GlobalExceptionHandler`, `Program.cs` |
+| `Scriptorium.API` | `DocumentEndpoints`, `QuestionEndpoints`, `SummaryEndpoints`, `EntityEndpoints`, the helpers the question, summary and entity endpoints use (`ModelPreferenceParser`, `AskFailureResponses`), `GlobalExceptionHandler`, `Program.cs` |
 | `Scriptorium.Web` | the Angular app (standalone components and signals) |
 
 ## 2. The interfaces that matter
@@ -183,6 +183,7 @@ sequenceDiagram
     EP-->>UI: 200 summary + truncated + backend, or 400/404/409/503/504/500
 ```
 
+- **Shared steps.** The checks after the preference (document found, ready, enough text), the scoring, the routing and the call to the chosen provider are in `RoutedDocument`, which the entity flow (4.5) uses as well; `DocumentSummaryService` only builds the prompt and hands the reply on.
 - **Nothing is stored.** No entity, no column, no cache: the summary exists in the response and on the page. Asking again runs
   the model again.
 - **Same rules as a question.** The same `ModelRouter`, the same preference, the same refusals and the same messages
@@ -191,6 +192,50 @@ sequenceDiagram
 - **A model that answers with nothing** gives a generic `500`, never an empty summary.
 - **The cut is the question's:** `SummaryPromptBuilder` uses `TextExcerpt.Of(text, Qa:MaxDocumentCharacters)` and the same fenced
   `<document>` block, so a summary reads the first part the questions and the text popup show; the page says so when `truncated`.
+
+### 4.5 Extracting entities
+
+```mermaid
+sequenceDiagram
+    participant UI as Web (ask panel, Extract entities)
+    participant EP as EntityEndpoints
+    participant ES as DocumentEntityService
+    participant RD as RoutedDocument
+    participant B as EntityPromptBuilder
+    participant AI as IAIProvider or ICloudAIProvider
+    participant P as EntityReplyParser
+    participant V as EntityVerifier
+    UI->>EP: POST /api/documents/{id}/entities (preference, optional)
+    EP->>EP: preference valid? (400 if not)
+    EP->>ES: ExtractAsync
+    ES->>RD: PrepareAsync (found? ready? 50 characters? score, route)
+    RD-->>ES: the text and the provider, or 404/409/503
+    ES->>B: Build(text)
+    Note over B: cut at Qa:MaxDocumentCharacters,<br/>one entity per line, kind: text,<br/>NONE when there is nothing
+    B-->>ES: prompt + truncated flag + the text read
+    ES->>RD: CompleteAsync(prompt)
+    RD->>AI: CompleteAsync
+    AI-->>RD: AiResult
+    RD-->>ES: the reply, or 503/504/500
+    ES->>P: Parse(reply)
+    P-->>ES: candidates, none, or unreadable (500)
+    ES->>V: Verify(candidates, the text read)
+    V-->>ES: groups of entities found in the text
+    ES-->>EP: EntityResult (groups, truncated, backend)
+    EP-->>UI: 200 groups + truncated + backend, or 400/404/409/503/504/500
+```
+
+- **Nothing is stored.** No entity, no column, no cache: the entities exist in the response and on the page.
+- **Same rules as a question or a summary.** The same `ModelRouter`, preference, refusals, messages and no fallback; the order of
+  checks is preference, document found, ready, enough text, routing, model, and a refusal before the model never calls it.
+- **The model's reply is not trusted.** The prompt asks for one `kind: text` per line (no JSON, so `AiRequest` and the providers
+  are unchanged). `EntityReplyParser` reads the lines; `EntityVerifier` keeps an entity only if its text is found in the exact
+  text the model was given (`EntityPrompt.TextRead`), ignoring letter case and runs of white space. It is shown as the document
+  writes it, once, in order of first appearance, and the types come in a fixed order (people, organizations, dates, amounts,
+  places). What is not in the text is dropped, so a date the model rewrites (for example `5 March` for `05/03`) is dropped too.
+- **A reply with nothing, or that cannot be read**, is `"groups": []` for a clear `NONE`, and a generic `500` ("The entities could
+  not be extracted.") when no line makes sense. A type with no entity is not in the response.
+- **Same cut as the questions:** `TextExcerpt.Of(text, Qa:MaxDocumentCharacters)`; the page says so when `truncated`.
 
 ## 5. Cross-cutting rules
 
@@ -215,7 +260,7 @@ Standalone Angular components with signals, no state library.
 | `DocumentApiService` | The only place that calls the API (`HttpClient`) |
 | `upload` | File picker, Private flag, progress and error messages |
 | `document-list` | The list (refreshes while a document is processing), Ask, Text and Delete buttons |
-| `ask-panel` + `ConversationSelectionService` | The question panel and its **Answer with** selector (Auto, Local, Cloud); the conversation and the choice live in the component and are forgotten on close or reload. A **Summarise** button next to **Send** asks for a summary of the open document with the same selector; the summary is a card above the conversation, never part of the history sent with a question, and is dropped with the conversation. It sends the preference and shows `backend` and the `truncated` note; it decides nothing |
+| `ask-panel` + `ConversationSelectionService` | The question panel and its **Answer with** selector (Auto, Local, Cloud); the conversation and the choice live in the component and are forgotten on close or reload. A **Summarise** button and an **Extract entities** button next to **Send** ask for a summary or the entities of the open document with the same selector; each is a card above the conversation (the entities as one block per type), never part of the history sent with a question, and is dropped with the conversation; asking again replaces only that button's own card, so a summary and the entities can be on the page together. It sends the preference and shows `backend` and the `truncated` note; it decides nothing |
 | `text-popup` + `TextPopupSelectionService` | The read-only popup on a native `<dialog>`; it shows what the server sends and does no cutting |
 
 Components are thin views: the cut, the limits and the rules live on the server. In development `ng serve` proxies `/api` to
@@ -256,6 +301,9 @@ for the cloud-on cases.
 Switching it on later is configuration only (`Routing:CloudEnabled=true` and `Anthropic:ApiKey` in `dotnet user-secrets`),
 not a redesign. Check that the default model id is still valid first, and expect it to cost money.
 
-Summaries go through the same router (see 4.4); entity extraction is planned to as well. The decisions, the data model and the
+**How Auto scores an extraction:** the same as a summary (empty question, no earlier exchanges, score 0 or 1), so with the default threshold Auto answers locally.
+
+Summaries (4.4) and entity extraction (4.5) go through the same router. The decisions, the data model and the
 contract of the router are in [`specs/005-model-router/`](../specs/005-model-router/), those of the summaries in
-[`specs/006-summaries/`](../specs/006-summaries/).
+[`specs/006-summaries/`](../specs/006-summaries/) and those of the entity extraction in
+[`specs/007-entity-extraction/`](../specs/007-entity-extraction/).

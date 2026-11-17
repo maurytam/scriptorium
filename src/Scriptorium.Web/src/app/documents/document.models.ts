@@ -63,6 +63,23 @@ export interface SummaryResponse {
   backend: 'local' | 'cloud';
 }
 
+/** The five kinds of entity, as the server names them; the server also decides their order. */
+export type EntityType = 'people' | 'organizations' | 'dates' | 'amounts' | 'places';
+
+export interface EntityGroup {
+  type: EntityType;
+  entities: string[];
+}
+
+/** The key entities of a document, grouped by type; produced each time, never stored. */
+export interface EntitiesResponse {
+  /** Only the types that have at least one entity; empty when nothing was found. */
+  groups: EntityGroup[];
+  truncated: boolean;
+  /** Which model did the work: the one on this computer or the cloud one. */
+  backend: 'local' | 'cloud';
+}
+
 export interface AskLimits {
   maxQuestionLength: number;
 }
