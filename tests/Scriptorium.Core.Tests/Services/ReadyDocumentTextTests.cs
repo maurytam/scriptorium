@@ -83,6 +83,29 @@ public class ReadyDocumentTextTests
         _repository.VerifyAll();
     }
 
+    [Fact]
+    public async Task LoadAsync_ReadyDocument_ExposesItsFileType()
+    {
+        _repository.Setup(r => r.GetByIdAsync(_id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Document { Id = _id, Status = DocumentStatus.Ready, FileType = "docx" });
+        _repository.Setup(r => r.GetExtractedTextAsync(_id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ExtractedText { DocumentId = _id, Content = "text" });
+
+        var result = await ReadyDocumentText.LoadAsync(_repository.Object, _id, CancellationToken.None);
+
+        result.FileType.Should().Be("docx");
+    }
+
+    [Fact]
+    public async Task LoadAsync_FailedLoad_HasNoFileType()
+    {
+        _repository.Setup(r => r.GetByIdAsync(_id, It.IsAny<CancellationToken>())).ReturnsAsync((Document?)null);
+
+        var result = await ReadyDocumentText.LoadAsync(_repository.Object, _id, CancellationToken.None);
+
+        result.FileType.Should().BeEmpty();
+    }
+
     private void ReadyDocument(string text, bool isPrivate)
     {
         _repository.Setup(r => r.GetByIdAsync(_id, It.IsAny<CancellationToken>()))

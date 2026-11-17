@@ -573,7 +573,8 @@ progress:not([value])::-webkit-progress-bar {
 }
 
 .summary,
-.entities {
+.entities,
+.signature {
   display: grid;
   gap: 0.5rem;
   padding: 0.9rem 1rem;
@@ -583,14 +584,16 @@ progress:not([value])::-webkit-progress-bar {
 }
 
 .summary h3,
-.entities h3 {
+.entities h3,
+.signature h3 {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 1.05rem;
 }
 
 .summary p,
-.entities p {
+.entities p,
+.signature p {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -640,6 +643,27 @@ progress:not([value])::-webkit-progress-bar {
   color: var(--muted);
 }
 
+.signature-list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signature-list li {
+  overflow-wrap: anywhere;
+}
+
+.signature .signature-none {
+  color: var(--muted);
+}
+
+.signature .signature-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .summary .backend,
 .entities .backend {
   color: var(--muted);
@@ -648,8 +672,18 @@ progress:not([value])::-webkit-progress-bar {
 
 .ask-send {
   display: flex;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.75rem;
   align-items: end;
+}
+
+/* The question box takes the whole width and the buttons wrap below it, Send staying at the right end. */
+.ask-form textarea {
+  min-height: 6.5rem;
+}
+
+.ask-send button[type='submit'] {
+  margin-left: auto;
 }
 
 .preference {
@@ -671,8 +705,7 @@ progress:not([value])::-webkit-progress-bar {
 .ask-form {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: 1fr auto;
-  align-items: end;
+  grid-template-columns: 1fr;
 }
 
 .char-counter {

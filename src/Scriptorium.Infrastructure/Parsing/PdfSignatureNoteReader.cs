@@ -1,4 +1,4 @@
-using System.Globalization;
+using Scriptorium.Core.Services;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.AcroForms;
 using UglyToad.PdfPig.AcroForms.Fields;
@@ -9,9 +9,6 @@ namespace Scriptorium.Infrastructure.Parsing;
 
 public sealed class PdfSignatureNoteReader : IPdfSignatureNoteReader
 {
-    private const string Wording = "file firmato con firma digitale";
-    private const string UnknownSigner = "(firmatario sconosciuto)";
-
     private static readonly NameToken ValueKey = NameToken.Create("V");
     private static readonly NameToken SigningTimeKey = NameToken.Create("M");
 
@@ -62,10 +59,7 @@ public sealed class PdfSignatureNoteReader : IPdfSignatureNoteReader
 
     private string Note(DictionaryToken signature)
     {
-        var name = _signerNames.Read(signature);
-        var line = name is null ? $"{Wording} {UnknownSigner}" : $"{Wording} da {name}";
-        var date = SigningDate(signature);
-        return date is null ? line : $"{line} — {date}";
+        return SignatureNote.Line(_signerNames.Read(signature), SigningDate(signature));
     }
 
     private static string? SigningDate(DictionaryToken signature)
@@ -83,7 +77,7 @@ public sealed class PdfSignatureNoteReader : IPdfSignatureNoteReader
         };
 
         return raw is not null && HasDateHourAndMinute(raw) && DateFormatHelper.TryParseDateTimeOffset(raw, out var date)
-            ? Format(date, raw)
+            ? SignatureNote.FormatDate(date, DeclaresZone(raw))
             : null;
     }
 
@@ -92,12 +86,6 @@ public sealed class PdfSignatureNoteReader : IPdfSignatureNoteReader
     {
         var body = raw.StartsWith("D:", StringComparison.Ordinal) ? raw[2..] : raw;
         return body.TakeWhile(char.IsAsciiDigit).Count() >= 12;
-    }
-
-    private static string Format(DateTimeOffset date, string raw)
-    {
-        var text = date.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-        return DeclaresZone(raw) ? $"{text} {date.ToString("zzz", CultureInfo.InvariantCulture)}" : text;
     }
 
     // PdfPig reports a date with no zone as +00:00, the same as "Z"; only show the offset when the file declares one.

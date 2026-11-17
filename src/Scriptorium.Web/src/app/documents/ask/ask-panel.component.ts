@@ -3,7 +3,15 @@ import { Component, WritableSignal, computed, effect, inject, signal, untracked 
 import { Observable, Subscription } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
-import { AskPreference, AskResponse, EntitiesResponse, EntityType, SummaryResponse } from '../document.models';
+import {
+  AskPreference,
+  AskResponse,
+  EntitiesResponse,
+  EntityType,
+  SignatureEntry,
+  SignaturesResponse,
+  SummaryResponse,
+} from '../document.models';
 import { describeAskFailure } from './ask-failure-message';
 import { ConversationSelectionService } from './conversation-selection.service';
 
@@ -15,6 +23,10 @@ const GROUP_TITLES: Record<EntityType, string> = {
   amounts: 'Amounts',
   places: 'Places',
 };
+
+const UNKNOWN_SIGNER = 'Unknown signer';
+const NO_DATE = 'No signing date declared in the file.';
+const NO_SIGNATURE = 'This document has no digital signature.';
 
 interface Exchange {
   question: string;
@@ -42,6 +54,9 @@ export class AskPanelComponent {
   // Shown above the conversation and never part of the history sent with a question.
   readonly summary = signal<SummaryResponse | null>(null);
   readonly entities = signal<EntitiesResponse | null>(null);
+  readonly signatureAuthor = signal<SignaturesResponse | null>(null);
+  readonly signatureDate = signal<SignaturesResponse | null>(null);
+  readonly noSignatureMessage = NO_SIGNATURE;
   readonly errorMessage = signal<string | null>(null);
   readonly maxQuestionLength = signal<number | null>(null);
   // The server trims the question before measuring it, so the counter does the same.
@@ -133,6 +148,30 @@ export class AskPanelComponent {
     }
   }
 
+  showSignatureAuthor(): void {
+    const document = this.document();
+    if (document) {
+      this.show(this.signatureAuthor, () => this.api.getSignatures(document.id));
+    }
+  }
+
+  showSignatureDate(): void {
+    const document = this.document();
+    if (document) {
+      this.show(this.signatureDate, () => this.api.getSignatures(document.id));
+    }
+  }
+
+  signerName(entry: SignatureEntry): string {
+    return entry.signer ?? UNKNOWN_SIGNER;
+  }
+
+  // With one signature the date stands alone; with several, each date says whose it is.
+  dateLine(entry: SignatureEntry, several: boolean): string {
+    const date = entry.signedAt ?? NO_DATE;
+    return several ? `${this.signerName(entry)}: ${date}` : date;
+  }
+
   close(): void {
     this.selection.close();
   }
@@ -180,6 +219,8 @@ export class AskPanelComponent {
     this.transcript.set([]);
     this.summary.set(null);
     this.entities.set(null);
+    this.signatureAuthor.set(null);
+    this.signatureDate.set(null);
     this.question.set('');
     this.preference.set('auto');
     this.errorMessage.set(null);

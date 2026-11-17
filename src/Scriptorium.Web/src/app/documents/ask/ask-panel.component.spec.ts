@@ -3,7 +3,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
-import { AskLimits, AskResponse, DocumentSummary, EntitiesResponse, SummaryResponse } from '../document.models';
+import {
+  AskLimits,
+  AskResponse,
+  DocumentSummary,
+  EntitiesResponse,
+  SignaturesResponse,
+  SummaryResponse,
+} from '../document.models';
 import { AskPanelComponent } from './ask-panel.component';
 import { ConversationSelectionService } from './conversation-selection.service';
 
@@ -23,7 +30,7 @@ describe('AskPanelComponent', () => {
   let api: jasmine.SpyObj<DocumentApiService>;
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['ask', 'getAskLimits', 'summarize', 'extractEntities']);
+    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['ask', 'getAskLimits', 'summarize', 'extractEntities', 'getSignatures']);
     api.getAskLimits.and.returnValue(of({ maxQuestionLength: 2000 }));
     await TestBed.configureTestingModule({
       imports: [AskPanelComponent],
@@ -1317,5 +1324,445 @@ describe('AskPanelComponent', () => {
     open('a');
 
     expect(text()).not.toContain('Answer about A.');
+  });
+
+  describe('signature author', () => {
+    const authorButton = () =>
+      Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Signature author') as
+        | HTMLButtonElement
+        | undefined;
+    const authorCard = () => root().querySelector('article[aria-label="Signature author"]');
+    const signatures = (...entries: SignaturesResponse['signatures']): SignaturesResponse => ({ signatures: entries });
+    const NOT_VALIDATED = 'The name and date are what the file declares. The signature has not been validated.';
+
+    it('offers a Signature author button next to Summarise and Extract entities once a document is open', () => {
+      open();
+
+      const labels = Array.from(root().querySelectorAll('.ask-send button')).map((b) => b.textContent?.trim());
+      expect(labels.slice(0, 3)).toEqual(['Summarise', 'Extract entities', 'Signature author']);
+      expect(labels.at(-1)).toBe('Send');
+    });
+
+    it('shows no card until the button is pressed', () => {
+      open();
+
+      expect(authorCard()).toBeNull();
+      expect(api.getSignatures).not.toHaveBeenCalled();
+    });
+
+    it('asks for the signatures of the open document and lists the signers in order', () => {
+      api.getSignatures.and.returnValue(
+        of(signatures({ signer: 'Anna Verdi', signedAt: '2026-03-14 09:00:00' }, { signer: 'Luca Bianchi', signedAt: null })),
+      );
+      open('report');
+
+      authorButton()!.click();
+      fixture.detectChanges();
+
+      expect(api.getSignatures).toHaveBeenCalledOnceWith('report');
+      expect(authorCard()?.querySelector('h3')?.textContent).toContain('Signature author');
+      const items = Array.from(authorCard()!.querySelectorAll('li')).map((li) => li.textContent?.trim());
+      expect(items).toEqual(['Anna Verdi', 'Luca Bianchi']);
+    });
+
+    it('says Unknown signer when the file names no signer', () => {
+      api.getSignatures.and.returnValue(of(signatures({ signer: null, signedAt: null })));
+      open();
+
+      authorButton()!.click();
+      fixture.detectChanges();
+
+      expect(authorCard()?.textContent).toContain('Unknown signer');
+    });
+
+    it('says that the name is what the file declares and that the signature is not validated', () => {
+      api.getSignatures.and.returnValue(of(signatures({ signer: 'Mario Rossi', signedAt: null })));
+      open();
+
+      authorButton()!.click();
+      fixture.detectChanges();
+
+      expect(authorCard()?.textContent).toContain(NOT_VALIDATED);
+    });
+
+    it('shows the progress and disables the buttons while it works', () => {
+      api.getSignatures.and.returnValue(new Subject<SignaturesResponse>());
+      open();
+
+      authorButton()!.click();
+      fixture.detectChanges();
+
+      expect(root().querySelector('[role=status]')).not.toBeNull();
+      expect(authorButton()!.disabled).toBeTrue();
+      expect(sendButton().disabled).toBeTrue();
+    });
+
+    it('shows the message of a failure as an alert and no card', () => {
+      api.getSignatures.and.returnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { error: 'The document is not ready. Current status: processing.' },
+            }),
+        ),
+      );
+      open();
+
+      authorButton()!.click();
+      fixture.detectChanges();
+
+      expect(root().querySelector('[role=alert]')?.textContent).toContain('The document is not ready. Current status: processing.');
+      expect(authorCard()).toBeNull();
+    });
+
+    it('is not affected by the Answer with choice: it sends nothing but the document', () => {
+      api.getSignatures.and.returnValue(of(signatures({ signer: 'Mario Rossi', signedAt: null })));
+      open('report');
+      const select = root().querySelector('select') as HTMLSelectElement;
+      select.value = 'cloud';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      authorButton()!.click();
+      fixture.detectChanges();
+
+      expect(api.getSignatures).toHaveBeenCalledOnceWith('report');
+      expect(root().querySelector('[role=alert]')).toBeNull();
+    });
+  });
+
+  describe('signature date', () => {
+    const buttonLabelled = (label: string) =>
+      Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement | undefined;
+    const dateButton = () => buttonLabelled('Signature date');
+    const authorButton = () => buttonLabelled('Signature author');
+    const dateCard = () => root().querySelector('article[aria-label="Signature date"]');
+    const authorCard = () => root().querySelector('article[aria-label="Signature author"]');
+    const signatures = (...entries: SignaturesResponse['signatures']): SignaturesResponse => ({ signatures: entries });
+    const items = (card: Element | null) => Array.from(card?.querySelectorAll('li') ?? []).map((li) => li.textContent?.trim());
+    const NOT_VALIDATED = 'The name and date are what the file declares. The signature has not been validated.';
+    const NO_DATE = 'No signing date declared in the file.';
+
+    it('offers a Signature date button right after Signature author', () => {
+      open();
+
+      const labels = Array.from(root().querySelectorAll('.ask-send button')).map((b) => b.textContent?.trim());
+      expect(labels).toEqual(['Summarise', 'Extract entities', 'Signature author', 'Signature date', 'Send']);
+    });
+
+    it('asks for the signatures of the open document and shows the date exactly as the file declares it', () => {
+      api.getSignatures.and.returnValue(of(signatures({ signer: 'Mario Rossi', signedAt: '2026-03-14 10:32:00 +01:00' })));
+      open('report');
+
+      dateButton()!.click();
+      fixture.detectChanges();
+
+      expect(api.getSignatures).toHaveBeenCalledOnceWith('report');
+      expect(dateCard()?.querySelector('h3')?.textContent).toContain('Signature date');
+      expect(items(dateCard())).toEqual(['2026-03-14 10:32:00 +01:00']);
+    });
+
+    it('does not convert the date: a date with no zone stays with no zone', () => {
+      api.getSignatures.and.returnValue(of(signatures({ signer: 'Mario Rossi', signedAt: '2026-03-14 10:32:00' })));
+      open();
+
+      dateButton()!.click();
+      fixture.detectChanges();
+
+      expect(items(dateCard())).toEqual(['2026-03-14 10:32:00']);
+    });
+
+    it('names the signer of each date when there are several signatures', () => {
+      api.getSignatures.and.returnValue(
+        of(
+          signatures(
+            { signer: 'Anna Verdi', signedAt: '2026-03-14 09:00:00 +01:00' },
+            { signer: null, signedAt: '2026-03-15 10:00:00' },
+            { signer: 'Luca Bianchi', signedAt: null },
+          ),
+        ),
+      );
+      open();
+
+      dateButton()!.click();
+      fixture.detectChanges();
+
+      expect(items(dateCard())).toEqual([
+        'Anna Verdi: 2026-03-14 09:00:00 +01:00',
+        'Unknown signer: 2026-03-15 10:00:00',
+        `Luca Bianchi: ${NO_DATE}`,
+      ]);
+    });
+
+    it('says that no date is declared when the only signature has none', () => {
+      api.getSignatures.and.returnValue(of(signatures({ signer: 'Mario Rossi', signedAt: null })));
+      open();
+
+      dateButton()!.click();
+      fixture.detectChanges();
+
+      expect(items(dateCard())).toEqual([NO_DATE]);
+    });
+
+    it('says that the date is what the file declares and that the signature is not validated', () => {
+      api.getSignatures.and.returnValue(of(signatures({ signer: 'Mario Rossi', signedAt: '2026-03-14 10:32:00' })));
+      open();
+
+      dateButton()!.click();
+      fixture.detectChanges();
+
+      expect(dateCard()?.textContent).toContain(NOT_VALIDATED);
+    });
+
+    it('shows the progress and disables the buttons while it works', () => {
+      api.getSignatures.and.returnValue(new Subject<SignaturesResponse>());
+      open();
+
+      dateButton()!.click();
+      fixture.detectChanges();
+
+      expect(root().querySelector('[role=status]')).not.toBeNull();
+      expect(dateButton()!.disabled).toBeTrue();
+      expect(authorButton()!.disabled).toBeTrue();
+      expect(sendButton().disabled).toBeTrue();
+    });
+
+    it('shows the message of a failure as an alert and no card', () => {
+      api.getSignatures.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 409, error: { error: 'The document is not ready. Current status: failed.' } })),
+      );
+      open();
+
+      dateButton()!.click();
+      fixture.detectChanges();
+
+      expect(root().querySelector('[role=alert]')?.textContent).toContain('The document is not ready. Current status: failed.');
+      expect(dateCard()).toBeNull();
+    });
+
+    it('keeps both cards on the page and each button replaces only its own card', () => {
+      api.getSignatures.and.returnValues(
+        of(signatures({ signer: 'Mario Rossi', signedAt: '2026-03-14 10:32:00' })),
+        of(signatures({ signer: 'Mario Rossi', signedAt: '2026-03-14 10:32:00' })),
+        of(signatures({ signer: 'Anna Verdi', signedAt: '2026-04-01 08:00:00' })),
+      );
+      open();
+
+      authorButton()!.click();
+      fixture.detectChanges();
+      dateButton()!.click();
+      fixture.detectChanges();
+      expect(authorCard()).not.toBeNull();
+      expect(dateCard()).not.toBeNull();
+
+      dateButton()!.click();
+      fixture.detectChanges();
+
+      expect(items(authorCard())).toEqual(['Mario Rossi']);
+      expect(items(dateCard())).toEqual(['2026-04-01 08:00:00']);
+    });
+
+    it('is dropped with New conversation', () => {
+      api.getSignatures.and.returnValue(of(signatures({ signer: 'Mario Rossi', signedAt: '2026-03-14 10:32:00' })));
+      open();
+      dateButton()!.click();
+      fixture.detectChanges();
+
+      const reset = Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'New conversation');
+      reset!.click();
+      fixture.detectChanges();
+
+      expect(dateCard()).toBeNull();
+    });
+  });
+
+  describe('a document with no digital signature', () => {
+    const buttonLabelled = (label: string) =>
+      Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+    const card = (label: string) => root().querySelector(`article[aria-label="${label}"]`);
+    const NONE = 'This document has no digital signature.';
+
+    for (const label of ['Signature author', 'Signature date']) {
+      it(`says so when ${label} finds nothing, with no name, no date, no note and no alert`, () => {
+        api.getSignatures.and.returnValue(of({ signatures: [] }));
+        open();
+
+        buttonLabelled(label).click();
+        fixture.detectChanges();
+
+        expect(card(label)?.textContent).toContain(NONE);
+        expect(card(label)?.querySelectorAll('li').length).toBe(0);
+        expect(card(label)?.textContent).not.toContain('has not been validated');
+        expect(card(label)?.textContent).not.toContain('Unknown signer');
+        expect(root().querySelector('[role=alert]')).toBeNull();
+      });
+    }
+
+    it('shows the message under the right heading in both cards at once', () => {
+      api.getSignatures.and.returnValue(of({ signatures: [] }));
+      open();
+
+      buttonLabelled('Signature author').click();
+      fixture.detectChanges();
+      buttonLabelled('Signature date').click();
+      fixture.detectChanges();
+
+      expect(card('Signature author')?.textContent).toContain(NONE);
+      expect(card('Signature date')?.textContent).toContain(NONE);
+    });
+  });
+
+  describe('the signature buttons in the panel', () => {
+    const buttonLabelled = (label: string) =>
+      Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+    const card = (label: string) => root().querySelector(`article[aria-label="${label}"]`);
+    const one: SignaturesResponse = { signatures: [{ signer: 'Mario Rossi', signedAt: '2026-03-14 10:32:00' }] };
+    const SIGNATURE_LABELS = ['Signature author', 'Signature date'];
+
+    it('puts the four action buttons in one row with the same style', () => {
+      open();
+
+      const row = root().querySelector('.ask-send')!;
+      const classes = ['Summarise', 'Extract entities', 'Signature author', 'Signature date'].map((label) =>
+        Array.from(row.querySelectorAll('button')).find((b) => b.textContent?.trim() === label)?.className,
+      );
+      expect(new Set(classes).size).toBe(1);
+      expect(classes[0]).toContain('secondary');
+    });
+
+    it('shows each card above the conversation', () => {
+      api.getSignatures.and.returnValue(of(one));
+      api.ask.and.returnValue(of(answer('A reply.')));
+      open();
+      type('Who signed?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      buttonLabelled('Signature author').click();
+      fixture.detectChanges();
+
+      const everything = Array.from(root().querySelectorAll('article[aria-label="Signature author"], ol.transcript'));
+      expect(everything.map((e) => e.tagName)).toEqual(['ARTICLE', 'OL']);
+    });
+
+    it('never makes a card part of the history sent with the next question', () => {
+      api.getSignatures.and.returnValue(of(one));
+      api.ask.and.returnValue(of(answer()));
+      open('report');
+      buttonLabelled('Signature author').click();
+      fixture.detectChanges();
+
+      type('Next question?');
+      sendButton().click();
+
+      expect(api.ask.calls.mostRecent().args).toEqual(['report', 'Next question?', [], 'auto']);
+    });
+
+    for (const label of SIGNATURE_LABELS) {
+      it(`drops the ${label} card on New conversation`, () => {
+        api.getSignatures.and.returnValue(of(one));
+        open();
+        buttonLabelled(label).click();
+        fixture.detectChanges();
+
+        buttonLabelled('New conversation').click();
+        fixture.detectChanges();
+
+        expect(card(label)).toBeNull();
+      });
+
+      it(`drops the ${label} card when the panel is closed and opened again`, () => {
+        api.getSignatures.and.returnValue(of(one));
+        open('a');
+        buttonLabelled(label).click();
+        fixture.detectChanges();
+
+        selection.close();
+        settle();
+        open('a');
+
+        expect(card(label)).toBeNull();
+      });
+
+      it(`drops the ${label} card when another document is opened`, () => {
+        api.getSignatures.and.returnValue(of(one));
+        open('a');
+        buttonLabelled(label).click();
+        fixture.detectChanges();
+
+        open('b');
+
+        expect(card(label)).toBeNull();
+      });
+
+      it(`drops a ${label} answer that was still on its way when the conversation is reset`, () => {
+        const late = new Subject<SignaturesResponse>();
+        api.getSignatures.and.returnValue(late);
+        open();
+        buttonLabelled(label).click();
+        fixture.detectChanges();
+
+        selection.close();
+        settle();
+        open();
+        late.next(one);
+        fixture.detectChanges();
+
+        expect(card(label)).toBeNull();
+        expect(component.waiting()).toBeFalse();
+      });
+
+      it(`says the document no longer exists when ${label} gets the API's 404`, () => {
+        api.getSignatures.and.returnValue(
+          throwError(() => new HttpErrorResponse({ status: 404, error: { error: 'Document not found.' } })),
+        );
+        open();
+
+        buttonLabelled(label).click();
+        fixture.detectChanges();
+
+        expect(root().querySelector('[role=alert]')?.textContent).toContain('This document no longer exists');
+        expect(card(label)).toBeNull();
+      });
+
+      it(`does not say the document is gone when ${label} gets a 404 that is not the API's`, () => {
+        api.getSignatures.and.returnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+        open();
+
+        buttonLabelled(label).click();
+        fixture.detectChanges();
+
+        expect(root().querySelector('[role=alert]')?.textContent).not.toContain('no longer exists');
+        expect(root().querySelector('[role=alert]')?.textContent).toContain('did not recognise this request');
+      });
+
+      it(`gives the usual message when the server cannot be reached for ${label}`, () => {
+        api.getSignatures.and.returnValue(throwError(() => new HttpErrorResponse({ status: 0 })));
+        open();
+
+        buttonLabelled(label).click();
+        fixture.detectChanges();
+
+        expect(root().querySelector('[role=alert]')?.textContent).toContain('Cannot reach the Scriptorium server');
+      });
+    }
+
+    it('clears an earlier failure message when a signature button works again', () => {
+      api.getSignatures.and.returnValues(
+        throwError(() => new HttpErrorResponse({ status: 0 })),
+        of(one),
+      );
+      open();
+      buttonLabelled('Signature author').click();
+      fixture.detectChanges();
+      expect(root().querySelector('[role=alert]')).not.toBeNull();
+
+      buttonLabelled('Signature author').click();
+      fixture.detectChanges();
+
+      expect(root().querySelector('[role=alert]')).toBeNull();
+      expect(card('Signature author')).not.toBeNull();
+    });
   });
 });

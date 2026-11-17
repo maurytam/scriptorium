@@ -72,6 +72,16 @@ export interface EntityGroup {
 }
 
 /** The key entities of a document, grouped by type; produced each time, never stored. */
+/** One digital signature as the file declares it: a null signer is an unknown signer, a null date is no declared date. */
+export interface SignatureEntry {
+  signer: string | null;
+  signedAt: string | null;
+}
+
+export interface SignaturesResponse {
+  signatures: SignatureEntry[];
+}
+
 export interface EntitiesResponse {
   /** Only the types that have at least one entity; empty when nothing was found. */
   groups: EntityGroup[];
