@@ -55,6 +55,14 @@ export interface AskResponse {
   backend: 'local' | 'cloud';
 }
 
+/** A short summary of a document; produced each time, never stored. */
+export interface SummaryResponse {
+  summary: string;
+  truncated: boolean;
+  /** Which model wrote the summary: the one on this computer or the cloud one. */
+  backend: 'local' | 'cloud';
+}
+
 export interface AskLimits {
   maxQuestionLength: number;
 }

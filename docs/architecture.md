@@ -23,9 +23,9 @@ endpoint reads the request, calls one Core service and maps its `Result` to an H
 
 | Project | Holds |
 |---|---|
-| `Scriptorium.Core` | `Document` and `ExtractedText`, the interfaces below, the services (use cases) including `ModelRouter` and `ComplexityScorer`, `Result<T>` and the typed results, DTOs, `QaOptions`, `RoutingOptions` |
+| `Scriptorium.Core` | `Document` and `ExtractedText`, the interfaces below, the services (use cases) including `DocumentQuestionService`, `DocumentSummaryService`, `ModelRouter` and `ComplexityScorer`, the pieces the two use cases share (`ReadyDocumentText`, `AskFailureMapper`, `PromptDocumentBlock`), `Result<T>` and the typed results, DTOs, `QaOptions`, `RoutingOptions` |
 | `Scriptorium.Infrastructure` | the four parsers, `DocumentRepository` (EF Core), `LocalFileStore`, `DocumentProcessingQueue`, `OllamaProvider`, `ClaudeProvider` |
-| `Scriptorium.API` | `DocumentEndpoints`, `QuestionEndpoints`, `GlobalExceptionHandler`, `Program.cs` |
+| `Scriptorium.API` | `DocumentEndpoints`, `QuestionEndpoints`, `SummaryEndpoints`, the helpers both question and summary endpoints use (`ModelPreferenceParser`, `AskFailureResponses`), `GlobalExceptionHandler`, `Program.cs` |
 | `Scriptorium.Web` | the Angular app (standalone components and signals) |
 
 ## 2. The interfaces that matter
@@ -139,8 +139,9 @@ sequenceDiagram
   `QuestionPromptBuilder` keeps only the most recent ones (`Qa:MaxHistoryExchanges`, `Qa:MaxHistoryCharacters`).
 - **The document is data, not instructions:** the text goes inside a fenced `<document>` block and a copy of the closing tag
   inside the text is neutralised.
-- **Provider failures** come back as an `AiResult` with a kind; `DocumentQuestionService` turns *unavailable* and *timeout*
-  into messages the user can act on (`503`, `504`) and everything else into a generic one, with no details.
+- **Provider failures** come back as an `AiResult` with a kind; `AskFailureMapper` turns *unavailable* and *timeout*
+  into messages the user can act on (`503`, `504`) and everything else into a generic one, with no details. Loading a ready
+  document (`ReadyDocumentText`) and fencing it (`PromptDocumentBlock`) are shared with the summary flow.
 - **No fallback:** a question routed to the cloud that fails is reported as it is; it is never retried on the local model.
 - When the text was cut, the answer says so (`truncated`). The answer also says which backend produced it (`backend`).
 
@@ -150,6 +151,46 @@ sequenceDiagram
 `totalCharacters`. Both this and the question flow call `TextExcerpt.Of(text, Qa:MaxDocumentCharacters)`, so the popup shows
 exactly where the model's reading stops. The cut never ends on half of a character. `GET /api/documents/{id}/text` still
 returns the whole text.
+
+### 4.4 Summarising a document
+
+```mermaid
+sequenceDiagram
+    participant UI as Web (ask panel, Summarise)
+    participant EP as SummaryEndpoints
+    participant SS as DocumentSummaryService
+    participant RT as ReadyDocumentText
+    participant SC as ComplexityScorer
+    participant R as ModelRouter
+    participant B as SummaryPromptBuilder
+    participant AI as IAIProvider or ICloudAIProvider
+    UI->>EP: POST /api/documents/{id}/summary (preference, optional)
+    EP->>EP: preference valid? (400 if not)
+    EP->>SS: SummarizeAsync
+    SS->>RT: LoadAsync (found? ready? text there?)
+    RT-->>SS: the text and IsPrivate, or 404/409
+    SS->>SS: under 50 characters? 409, no model is called
+    SS->>SC: Score(empty question, text length, 0 exchanges)
+    SC-->>SS: score 0 or 1
+    SS->>R: Route(private?, preference, score)
+    R-->>SS: the provider to use, or a refusal (409/503)
+    SS->>B: Build(text)
+    Note over B: cut at Qa:MaxDocumentCharacters,<br/>one short paragraph, plain text,<br/>the language of the document
+    B-->>SS: prompt + truncated flag
+    SS->>AI: CompleteAsync
+    AI-->>SS: AiResult
+    SS-->>EP: AskResult (summary, truncated, backend)
+    EP-->>UI: 200 summary + truncated + backend, or 400/404/409/503/504/500
+```
+
+- **Nothing is stored.** No entity, no column, no cache: the summary exists in the response and on the page. Asking again runs
+  the model again.
+- **Same rules as a question.** The same `ModelRouter`, the same preference, the same refusals and the same messages
+  (`AskFailureMapper` and `AskFailureResponses` are shared), and no fallback when the cloud fails. The order of checks is
+  preference, document found, ready, enough text, routing, model; a refusal before the model never calls it.
+- **A model that answers with nothing** gives a generic `500`, never an empty summary.
+- **The cut is the question's:** `SummaryPromptBuilder` uses `TextExcerpt.Of(text, Qa:MaxDocumentCharacters)` and the same fenced
+  `<document>` block, so a summary reads the first part the questions and the text popup show; the page says so when `truncated`.
 
 ## 5. Cross-cutting rules
 
@@ -174,7 +215,7 @@ Standalone Angular components with signals, no state library.
 | `DocumentApiService` | The only place that calls the API (`HttpClient`) |
 | `upload` | File picker, Private flag, progress and error messages |
 | `document-list` | The list (refreshes while a document is processing), Ask, Text and Delete buttons |
-| `ask-panel` + `ConversationSelectionService` | The question panel and its **Answer with** selector (Auto, Local, Cloud); the conversation and the choice live in the component and are forgotten on close or reload. It sends the preference and shows `backend`; it decides nothing |
+| `ask-panel` + `ConversationSelectionService` | The question panel and its **Answer with** selector (Auto, Local, Cloud); the conversation and the choice live in the component and are forgotten on close or reload. A **Summarise** button next to **Send** asks for a summary of the open document with the same selector; the summary is a card above the conversation, never part of the history sent with a question, and is dropped with the conversation. It sends the preference and shows `backend` and the `truncated` note; it decides nothing |
 | `text-popup` + `TextPopupSelectionService` | The read-only popup on a native `<dialog>`; it shows what the server sends and does no cutting |
 
 Components are thin views: the cut, the limits and the rules live on the server. In development `ng serve` proxies `/api` to
@@ -194,6 +235,10 @@ hands a provider back; it never calls one. The rules, in this order:
 
 The cloud is *usable* when `Routing:CloudEnabled` is true **and** the cloud provider has a key (`ICloudAIProvider.IsConfigured`).
 
+**How Auto scores a summary:** the same scorer, called with an empty question and no earlier exchanges. Only the long-reading
+signal can fire, so the score is 0 or 1 and, with the default threshold of 2, Auto always answers a summary locally. It follows the
+threshold the person already configures; there is no separate rule for summaries. Cloud chosen by hand works as for a question.
+
 **The complexity score** (`ComplexityScorer`) is one point for each of five signals, so 0 to 5, from the question text and two
 numbers only, never the document text: a long question (400 characters or more), several questions in one (two or more `?`),
 a long reading (the text the model reads is 75 % or more of `Qa:MaxDocumentCharacters`), a conversation under way (three or
@@ -211,5 +256,6 @@ for the cloud-on cases.
 Switching it on later is configuration only (`Routing:CloudEnabled=true` and `Anthropic:ApiKey` in `dotnet user-secrets`),
 not a redesign. Check that the default model id is still valid first, and expect it to cost money.
 
-Summaries and entity extraction are planned to go through the same router. The decisions, the data model and the contract are in
-[`specs/005-model-router/`](../specs/005-model-router/).
+Summaries go through the same router (see 4.4); entity extraction is planned to as well. The decisions, the data model and the
+contract of the router are in [`specs/005-model-router/`](../specs/005-model-router/), those of the summaries in
+[`specs/006-summaries/`](../specs/006-summaries/).

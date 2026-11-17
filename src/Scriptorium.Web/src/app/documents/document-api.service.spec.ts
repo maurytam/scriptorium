@@ -1,9 +1,16 @@
-import { HttpEventType, provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 
 import { DocumentApiService } from './document-api.service';
-import { AskResponse, DocumentDetails, DocumentSummary, TextPreview, UploadEvent } from './document.models';
+import {
+  AskResponse,
+  DocumentDetails,
+  DocumentSummary,
+  SummaryResponse,
+  TextPreview,
+  UploadEvent,
+} from './document.models';
 
 const details = (status: DocumentDetails['status']): DocumentDetails => ({
   id: 'abc',
@@ -243,5 +250,38 @@ describe('DocumentApiService', () => {
     expect(request.request.method).toBe('GET');
     request.flush(preview);
     expect(received).toEqual(preview);
+  });
+
+  it('asks for a summary of a document with the automatic preference by default', () => {
+    const summary: SummaryResponse = { summary: 'A short paragraph.', truncated: false, backend: 'local' };
+    let received: SummaryResponse | undefined;
+
+    service.summarize('abc').subscribe((s) => (received = s));
+
+    const request = http.expectOne('/api/documents/abc/summary');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ preference: 'auto' });
+    request.flush(summary);
+    expect(received).toEqual(summary);
+  });
+
+  it('sends the chosen preference with the summary request', () => {
+    service.summarize('abc', 'cloud').subscribe();
+
+    const request = http.expectOne('/api/documents/abc/summary');
+    expect(request.request.body).toEqual({ preference: 'cloud' });
+    request.flush({ summary: 'x', truncated: false, backend: 'cloud' });
+  });
+
+  it('propagates a failed summary request with its status and message', () => {
+    let failure: HttpErrorResponse | undefined;
+
+    service.summarize('abc').subscribe({ error: (e: HttpErrorResponse) => (failure = e) });
+
+    http
+      .expectOne('/api/documents/abc/summary')
+      .flush({ error: 'The document has too little text to summarise.' }, { status: 409, statusText: 'Conflict' });
+    expect(failure?.status).toBe(409);
+    expect((failure?.error as { error: string }).error).toBe('The document has too little text to summarise.');
   });
 });

@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject, of, throwError } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
-import { AskLimits, AskResponse, DocumentSummary } from '../document.models';
+import { AskLimits, AskResponse, DocumentSummary, SummaryResponse } from '../document.models';
 import { AskPanelComponent } from './ask-panel.component';
 import { ConversationSelectionService } from './conversation-selection.service';
 
@@ -23,7 +23,7 @@ describe('AskPanelComponent', () => {
   let api: jasmine.SpyObj<DocumentApiService>;
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['ask', 'getAskLimits']);
+    api = jasmine.createSpyObj<DocumentApiService>('DocumentApiService', ['ask', 'getAskLimits', 'summarize']);
     api.getAskLimits.and.returnValue(of({ maxQuestionLength: 2000 }));
     await TestBed.configureTestingModule({
       imports: [AskPanelComponent],
@@ -534,6 +534,326 @@ describe('AskPanelComponent', () => {
     sendButton().click(); // retry with the question still in the input
 
     expect(api.ask.calls.argsFor(1)).toEqual(['report', 'Lost?', [], 'auto']);
+  });
+
+  describe('summary', () => {
+    const summariseButton = () =>
+      Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Summarise') as
+        | HTMLButtonElement
+        | undefined;
+    const summaryCard = () => root().querySelector('.summary');
+    const summaryOf = (value = 'A short paragraph.', backend: SummaryResponse['backend'] = 'local'): SummaryResponse => ({
+      summary: value,
+      truncated: false,
+      backend,
+    });
+    const summarise = () => {
+      summariseButton()!.click();
+      fixture.detectChanges();
+    };
+
+    it('offers a Summarise button once a document is open, and not before', () => {
+      expect(root().querySelector('button')).toBeNull();
+
+      open();
+
+      expect(summariseButton()).toBeDefined();
+      expect(summariseButton()!.disabled).toBeFalse();
+    });
+
+    it('summarises the open document with the selector value and shows the paragraph and where it was written', () => {
+      api.summarize.and.returnValue(of(summaryOf('The agreement was signed in May.')));
+      open('report');
+
+      summarise();
+
+      expect(api.summarize).toHaveBeenCalledOnceWith('report', 'auto');
+      expect(summaryCard()?.querySelector('h3')?.textContent).toContain('Summary');
+      expect(summaryCard()?.textContent).toContain('The agreement was signed in May.');
+      expect(summaryCard()?.textContent).toContain('Answered on this computer');
+    });
+
+    it('says when the cloud model wrote the summary', () => {
+      api.summarize.and.returnValue(of(summaryOf('Text.', 'cloud')));
+      open();
+
+      summarise();
+
+      expect(summaryCard()?.textContent).toContain('Answered by the cloud model');
+    });
+
+    it('sends the preference chosen in the selector', () => {
+      api.summarize.and.returnValue(of(summaryOf()));
+      open('report');
+      const select = root().querySelector('select') as HTMLSelectElement;
+      select.value = 'local';
+      select.dispatchEvent(new Event('change'));
+
+      summarise();
+
+      expect(api.summarize).toHaveBeenCalledOnceWith('report', 'local');
+    });
+
+    describe('with the Answer with selector', () => {
+      const selector = () => root().querySelector('select') as HTMLSelectElement;
+      const choose = (value: string) => {
+        selector().value = value;
+        selector().dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+      };
+      const newConversation = () =>
+        Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'New conversation');
+
+      it('leaves Cloud selectable and sends it as chosen', () => {
+        api.summarize.and.returnValue(of(summaryOf()));
+        open('report');
+        const cloud = Array.from(selector().options).find((o) => o.value === 'cloud');
+        expect(cloud?.disabled).toBeFalse();
+
+        choose('cloud');
+        summarise();
+
+        expect(api.summarize).toHaveBeenCalledOnceWith('report', 'cloud');
+      });
+
+      it('goes back to Auto when another document is opened, with or without a summary', () => {
+        api.summarize.and.returnValue(of(summaryOf()));
+        open('a');
+        choose('cloud');
+        open('b');
+        expect(selector().value).toBe('auto');
+
+        choose('local');
+        summarise();
+        open('c');
+
+        expect(selector().value).toBe('auto');
+        expect(component.preference()).toBe('auto');
+      });
+
+      it('goes back to Auto when the panel is closed and opened again', () => {
+        open('a');
+        choose('cloud');
+
+        selection.close();
+        settle();
+        open('a');
+
+        expect(selector().value).toBe('auto');
+      });
+
+      it('goes back to Auto on New conversation, whether the summary or a question made it available', () => {
+        api.summarize.and.returnValue(of(summaryOf()));
+        api.ask.and.returnValue(of(answer()));
+        open();
+        choose('local');
+        summarise();
+        newConversation()!.click();
+        fixture.detectChanges();
+        expect(selector().value).toBe('auto');
+
+        choose('cloud');
+        type('Who signed?');
+        sendButton().click();
+        fixture.detectChanges();
+        newConversation()!.click();
+        fixture.detectChanges();
+
+        expect(selector().value).toBe('auto');
+        expect(component.preference()).toBe('auto');
+      });
+
+      it('shows a refusal about a private document as it is and leaves no card', () => {
+        const message = 'This document is private, so it can only be answered on this computer. Choose Auto or Local.';
+        api.summarize.and.returnValue(throwError(() => new HttpErrorResponse({ status: 409, error: { error: message } })));
+        open();
+        choose('cloud');
+
+        summarise();
+
+        expect(root().querySelector('[role=alert]')?.textContent).toContain(message);
+        expect(summaryCard()).toBeNull();
+        expect(selector().value).toBe('cloud');
+      });
+    });
+
+    describe('when the document was too long to be read in full', () => {
+      const note = () => summaryCard()?.querySelector('.notice') ?? null;
+      const NOTE = 'This summary is based only on the first part of the document, which is too long to be read in full.';
+
+      it('says the summary is based only on the first part', () => {
+        api.summarize.and.returnValue(of({ ...summaryOf('About the start.'), truncated: true }));
+        open();
+
+        summarise();
+
+        expect(note()?.textContent).toContain(NOTE);
+        expect(note()?.getAttribute('role')).toBe('note');
+      });
+
+      it('shows no note for a document that was read in full', () => {
+        api.summarize.and.returnValue(of(summaryOf('About all of it.')));
+        open();
+
+        summarise();
+
+        expect(summaryCard()).toBeTruthy();
+        expect(note()).toBeNull();
+        expect(text()).not.toContain('only on the first part');
+      });
+
+      it('shows no note when the request failed', () => {
+        api.summarize.and.returnValue(throwError(() => new HttpErrorResponse({ status: 503, error: { error: 'Not available.' } })));
+        open();
+
+        summarise();
+
+        expect(note()).toBeNull();
+        expect(text()).not.toContain('only on the first part');
+      });
+
+      it('drops the note together with the summary', () => {
+        api.summarize.and.returnValue(of({ ...summaryOf('About the start.'), truncated: true }));
+        open('a');
+        summarise();
+
+        open('b');
+
+        expect(note()).toBeNull();
+      });
+    });
+
+    it('shows the progress and disables Send and Summarise while it works', () => {
+      api.summarize.and.returnValue(new Subject<SummaryResponse>());
+      open();
+      type('Who signed?');
+
+      summarise();
+
+      expect(root().querySelector('progress')).toBeTruthy();
+      expect(summariseButton()!.disabled).toBeTrue();
+      expect(sendButton().disabled).toBeTrue();
+    });
+
+    it('does nothing when it is pressed again while it works', () => {
+      api.summarize.and.returnValue(new Subject<SummaryResponse>());
+      open();
+
+      summarise();
+      component.summarize();
+
+      expect(api.summarize).toHaveBeenCalledTimes(1);
+    });
+
+    it('is not part of the history sent with the next question, and a question still works while it is shown', () => {
+      api.summarize.and.returnValue(of(summaryOf('The summary.')));
+      api.ask.and.returnValue(of(answer('Maria Rossi.')));
+      open('report');
+      summarise();
+
+      type('Who signed?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      expect(api.ask).toHaveBeenCalledOnceWith('report', 'Who signed?', [], 'auto');
+      expect(text()).toContain('Maria Rossi.');
+      expect(summaryCard()?.textContent).toContain('The summary.');
+    });
+
+    it('replaces the summary when it is asked for again', () => {
+      api.summarize.and.returnValues(of(summaryOf('First.')), of(summaryOf('Second.')));
+      open();
+
+      summarise();
+      summarise();
+
+      expect(summaryCard()?.textContent).toContain('Second.');
+      expect(text()).not.toContain('First.');
+    });
+
+    it('is removed when another document is opened, and a late result for the first one is dropped', () => {
+      const late = new Subject<SummaryResponse>();
+      api.summarize.and.returnValues(of(summaryOf('About A.')), late);
+      open('a');
+      summarise();
+      expect(summaryCard()).toBeTruthy();
+
+      open('b');
+      expect(summaryCard()).toBeNull();
+
+      summarise();
+      open('c');
+      late.next(summaryOf('Late, about B.'));
+      fixture.detectChanges();
+
+      expect(text()).not.toContain('Late, about B.');
+      expect(component.waiting()).toBeFalse();
+    });
+
+    it('is removed when the panel is closed', () => {
+      api.summarize.and.returnValue(of(summaryOf('About A.')));
+      open('a');
+      summarise();
+
+      selection.close();
+      settle();
+      open('a');
+
+      expect(summaryCard()).toBeNull();
+    });
+
+    it('is cleared by New conversation even when there is no question yet', () => {
+      api.summarize.and.returnValue(of(summaryOf('About A.')));
+      open();
+      const resetButton = () =>
+        Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'New conversation');
+      expect(resetButton()).toBeUndefined();
+
+      summarise();
+      expect(resetButton()).toBeDefined();
+      resetButton()!.click();
+      fixture.detectChanges();
+
+      expect(summaryCard()).toBeNull();
+      expect(resetButton()).toBeUndefined();
+    });
+
+    it('is removed by New conversation', () => {
+      api.summarize.and.returnValue(of(summaryOf('About A.')));
+      api.ask.and.returnValue(of(answer()));
+      open();
+      summarise();
+      type('Who signed?');
+      sendButton().click();
+      fixture.detectChanges();
+
+      const reset = Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'New conversation');
+      reset!.click();
+      fixture.detectChanges();
+
+      expect(summaryCard()).toBeNull();
+    });
+
+    const failures: [string, number, unknown, string][] = [
+      ['a document that is not ready (409)', 409, { error: 'The document is not ready. Current status: failed.' }, 'Current status: failed.'],
+      ['too little text (409)', 409, { error: 'The document has too little text to summarise.' }, 'too little text to summarise'],
+      ['a model that is not available (503)', 503, { error: 'The answering model is not available.' }, 'The answering model is not available.'],
+      ['a document that is gone (404)', 404, { error: 'Document not found.' }, 'This document no longer exists. Close this panel and choose another one.'],
+      ['an unexpected error (500)', 500, { error: 'The answer could not be produced.' }, 'The question could not be answered'],
+    ];
+
+    failures.forEach(([name, status, body, expected]) => {
+      it(`shows the same alert as a failed question for ${name} and no card`, () => {
+        api.summarize.and.returnValue(throwError(() => new HttpErrorResponse({ status, error: body })));
+        open();
+
+        summarise();
+
+        expect(root().querySelector('[role=alert]')?.textContent).toContain(expected);
+        expect(summaryCard()).toBeNull();
+        expect(summariseButton()!.disabled).toBeFalse();
+      });
+    });
   });
 
   describe('New conversation', () => {

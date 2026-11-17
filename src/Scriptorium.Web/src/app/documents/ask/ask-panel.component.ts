@@ -3,7 +3,7 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { Subscription } from 'rxjs';
 
 import { DocumentApiService } from '../document-api.service';
-import { AskPreference, AskResponse } from '../document.models';
+import { AskPreference, AskResponse, SummaryResponse } from '../document.models';
 import { describeAskFailure } from './ask-failure-message';
 import { ConversationSelectionService } from './conversation-selection.service';
 
@@ -30,6 +30,8 @@ export class AskPanelComponent {
   // Only sent to the server, which decides; the panel never routes anything itself.
   readonly preference = signal<AskPreference>('auto');
   readonly waiting = signal(false);
+  // Shown above the conversation and never part of the history sent with a question.
+  readonly summary = signal<SummaryResponse | null>(null);
   readonly errorMessage = signal<string | null>(null);
   readonly maxQuestionLength = signal<number | null>(null);
   // The server trims the question before measuring it, so the counter does the same.
@@ -63,8 +65,8 @@ export class AskPanelComponent {
     this.preference.set((event.target as HTMLSelectElement).value as AskPreference);
   }
 
-  backendLabel(exchange: Exchange): string {
-    return exchange.backend === 'cloud' ? 'Answered by the cloud model' : 'Answered on this computer';
+  backendLabel(item: { backend: AskResponse['backend'] }): string {
+    return item.backend === 'cloud' ? 'Answered by the cloud model' : 'Answered on this computer';
   }
 
   onEnter(event: Event): void {
@@ -103,6 +105,27 @@ export class AskPanelComponent {
     });
   }
 
+  summarize(): void {
+    const document = this.document();
+    if (!document || this.waiting()) {
+      return;
+    }
+
+    this.waiting.set(true);
+    this.errorMessage.set(null);
+    this.summary.set(null);
+    this.pending = this.api.summarize(document.id, this.preference()).subscribe({
+      next: (response) => {
+        this.summary.set(response);
+        this.waiting.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage.set(describeAskFailure(error));
+        this.waiting.set(false);
+      },
+    });
+  }
+
   close(): void {
     this.selection.close();
   }
@@ -126,6 +149,7 @@ export class AskPanelComponent {
     this.pending?.unsubscribe(); // a late answer about the previous document must not appear here
     this.pending = null;
     this.transcript.set([]);
+    this.summary.set(null);
     this.question.set('');
     this.preference.set('auto');
     this.errorMessage.set(null);

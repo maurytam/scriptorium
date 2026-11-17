@@ -63,6 +63,8 @@ builder.Services.AddSingleton(sp => new DocumentUploadService(
 builder.Services.AddSingleton<DocumentDeletionService>();
 builder.Services.AddSingleton<QuestionPromptBuilder>();
 builder.Services.AddSingleton<DocumentQuestionService>();
+builder.Services.AddSingleton<SummaryPromptBuilder>();
+builder.Services.AddSingleton<DocumentSummaryService>();
 builder.Services.AddSingleton<DocumentTextPreviewService>();
 builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = maxSizeBytes + DocumentEndpoints.MultipartOverheadBytes);
@@ -79,6 +81,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 app.UseExceptionHandler();
 app.MapDocumentEndpoints(maxSizeBytes);
 app.MapQuestionEndpoints();
+app.MapSummaryEndpoints();
 
 app.Run();
 
