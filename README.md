@@ -56,6 +56,12 @@ something you can question, summarize and mine for entities.
   A summary is produced each time you ask and **nothing is stored**. It uses the same **Answer with** selector and the same
   rules as the questions, and says where it came from ("Answered on this computer" or "Answered by the cloud model").
   A document with almost no text (under 50 characters) is not summarised.
+- 🏷 **Extracts the entities of a document.** An **Extract entities** button next to **Summarise** lists the people,
+  organizations, dates, amounts of money and places found in the text, grouped by type, each one once and as it is written in
+  the document. Only what is really in the text is shown: an entity the model names that cannot be found in the text it was
+  given is dropped. It reads the same first part of the text as the questions and says so when the document is longer. The
+  result is produced each time you ask and **nothing is stored**. It uses the same **Answer with** selector and the same rules
+  and label as the questions. A document with almost no text (under 50 characters) is refused without calling a model.
 - 🏠 **Runs on your machine.** With the settings you get out of the box the cloud is **off**: questions and document text go
   only to the local [Ollama](https://ollama.com) server, nothing leaves your computer and nothing costs anything.
 
@@ -66,7 +72,7 @@ something you can question, summarize and mine for entities.
 | ✅ | Document upload and parsing | Done |
 | ✅ | Ask questions about a document | Done |
 | ✅ | Summaries | Done |
-| ⬜ | Entity extraction | Planned |
+| ✅ | Entity extraction | Done |
 | ✅ | Model router: private documents → local **Ollama**, complex tasks → **Claude API**, manual override | Done; the cloud side is built but **off by default** and has never called the real service |
 | ⬜ | Docker Compose setup (with an Ollama service) | Planned |
 
@@ -144,6 +150,7 @@ the cloud is still treated as not available. Using it costs money on your Anthro
 | `GET` | `/api/documents/limits` | Upload limits enforced by the server |
 | `POST` | `/api/documents/{id}/ask` | Ask a question about a ready document (JSON: `question`, optional `history` of earlier exchanges, optional `preference`: `auto`, `local` or `cloud`). `200` with `answer`, `truncated` and `backend` (`local` or `cloud`), or `400` invalid question or preference, `404` unknown document, `409` document not ready or Cloud chosen for a private document, `503` the model (Ollama, or the cloud when chosen) not available, `504` no answer in time |
 | `POST` | `/api/documents/{id}/summary` | Summarise a ready document: one short paragraph, nothing stored (optional JSON body with `preference`: `auto`, `local` or `cloud`; no body is `auto`). `200` with `summary`, `truncated` and `backend` (`local` or `cloud`), or `400` invalid preference, `404` unknown document, `409` document not ready, too little text to summarise, or Cloud chosen for a private document, `503` the model not available, `504` no answer in time. See [the contract](specs/006-summaries/contracts/summary-api.md) |
+| `POST` | `/api/documents/{id}/entities` | Extract the entities of a ready document: people, organizations, dates, amounts and places, nothing stored (optional JSON body with `preference`: `auto`, `local` or `cloud`; no body is `auto`). `200` with `groups` (only the types found), `truncated` and `backend` (`local` or `cloud`), or `400` invalid preference, `404` unknown document, `409` document not ready, too little text, or Cloud chosen for a private document, `503` the model not available, `504` no answer in time, `500` the reply could not be read. See [the contract](specs/007-entity-extraction/contracts/entities-api.md) |
 | `GET` | `/api/documents/ask/limits` | Longest accepted question, from `Qa:MaxQuestionLength` (the web page uses it for its character counter) |
 
 The full contracts are in [`specs/001-document-upload-parsing/contracts/documents-api.md`](specs/001-document-upload-parsing/contracts/documents-api.md),
@@ -202,8 +209,9 @@ Everything for the first feature, document upload and parsing, lives in
 plan, research, data model, API contracts, quickstart, task list and validation results.
 The second feature, asking questions about a document, is in
 [`specs/002-ask-document-questions/`](specs/002-ask-document-questions/). The model router is in
-[`specs/005-model-router/`](specs/005-model-router/) and the summaries in
-[`specs/006-summaries/`](specs/006-summaries/).
+[`specs/005-model-router/`](specs/005-model-router/), the summaries in
+[`specs/006-summaries/`](specs/006-summaries/) and the entity extraction in
+[`specs/007-entity-extraction/`](specs/007-entity-extraction/).
 
 Each feature is built on its own branch and merged through a pull request. Project conventions
 are in [`Claude.md`](Claude.md).

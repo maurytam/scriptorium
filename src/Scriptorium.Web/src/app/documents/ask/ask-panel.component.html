@@ -3,7 +3,7 @@
     <header class="ask-header">
       <h2>Ask about <span class="ask-document">{{ doc.fileName }}</span></h2>
       <div class="ask-actions">
-        @if (transcript().length > 0 || summary()) {
+        @if (transcript().length > 0 || summary() || entities()) {
           <button type="button" class="secondary" (click)="newConversation()">New conversation</button>
         }
         <button type="button" class="secondary" (click)="close()">Close</button>
@@ -27,6 +27,30 @@
         }
         <p class="summary-text">{{ result.summary }}</p>
         <p class="backend">{{ backendLabel(result) }}</p>
+      </article>
+    }
+
+    @if (entities(); as found) {
+      <article class="entities" aria-label="Entities">
+        <h3>Entities</h3>
+        @if (found.truncated) {
+          <p class="notice" role="note">
+            These entities are based only on the first part of the document, which is too long to be read in full.
+          </p>
+        }
+        @for (group of found.groups; track group.type) {
+          <section class="entity-group">
+            <h4>{{ groupTitle(group.type) }}</h4>
+            <ul>
+              @for (entity of group.entities; track $index) {
+                <li>{{ entity }}</li>
+              }
+            </ul>
+          </section>
+        } @empty {
+          <p class="entities-none">No entities were found in this document.</p>
+        }
+        <p class="backend">{{ backendLabel(found) }}</p>
       </article>
     }
 
@@ -80,6 +104,7 @@
           </select>
         </label>
         <button type="button" class="secondary" [disabled]="waiting()" (click)="summarize()">Summarise</button>
+        <button type="button" class="secondary" [disabled]="waiting()" (click)="extractEntities()">Extract entities</button>
         <button type="submit" [disabled]="!canSend()">Send</button>
       </div>
       @if (maxQuestionLength(); as max) {

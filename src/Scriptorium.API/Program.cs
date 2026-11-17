@@ -65,6 +65,8 @@ builder.Services.AddSingleton<QuestionPromptBuilder>();
 builder.Services.AddSingleton<DocumentQuestionService>();
 builder.Services.AddSingleton<SummaryPromptBuilder>();
 builder.Services.AddSingleton<DocumentSummaryService>();
+builder.Services.AddSingleton<EntityPromptBuilder>();
+builder.Services.AddSingleton<DocumentEntityService>();
 builder.Services.AddSingleton<DocumentTextPreviewService>();
 builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = maxSizeBytes + DocumentEndpoints.MultipartOverheadBytes);
@@ -82,6 +84,7 @@ app.UseExceptionHandler();
 app.MapDocumentEndpoints(maxSizeBytes);
 app.MapQuestionEndpoints();
 app.MapSummaryEndpoints();
+app.MapEntityEndpoints();
 
 app.Run();
 

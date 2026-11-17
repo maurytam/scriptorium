@@ -572,7 +572,8 @@ progress:not([value])::-webkit-progress-bar {
   font-size: 0.8rem;
 }
 
-.summary {
+.summary,
+.entities {
   display: grid;
   gap: 0.5rem;
   padding: 0.9rem 1rem;
@@ -581,19 +582,22 @@ progress:not([value])::-webkit-progress-bar {
   border-radius: var(--radius);
 }
 
-.summary h3 {
+.summary h3,
+.entities h3 {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 1.05rem;
 }
 
-.summary p {
+.summary p,
+.entities p {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.summary .notice {
+.summary .notice,
+.entities .notice {
   padding: 0.65rem 0.9rem;
   color: var(--wait-ink);
   font-size: 0.9rem;
@@ -601,7 +605,43 @@ progress:not([value])::-webkit-progress-bar {
   border-radius: var(--radius);
 }
 
-.summary .backend {
+.entity-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.entity-group h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.entity-group ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entity-group li {
+  padding: 0.2rem 0.6rem;
+  overflow-wrap: anywhere;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+}
+
+.entities .entities-none {
+  color: var(--muted);
+}
+
+.summary .backend,
+.entities .backend {
   color: var(--muted);
   font-size: 0.8rem;
 }
