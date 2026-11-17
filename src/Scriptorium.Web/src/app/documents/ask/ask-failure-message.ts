@@ -2,6 +2,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 
 const GENERIC = 'The question could not be answered. Please try again.';
 const DOCUMENT_GONE = 'This document no longer exists. Close this panel and choose another one.';
+const NOT_RECOGNISED =
+  'The server did not recognise this request. Check that the API is up to date and running, then try again.';
 const SERVER_UNREACHABLE = 'Cannot reach the Scriptorium server. Check that the API is running and try again.';
 
 // The statuses whose server text tells the user something they can act on (see contracts/ask-api.md).
@@ -14,7 +16,9 @@ export function describeAskFailure(error: HttpErrorResponse): string {
   }
 
   if (error.status === 404) {
-    return DOCUMENT_GONE;
+    // Only the API's own answer means the document is gone; a 404 with no such body is a route that does not exist
+    // (for example an API started before the code was updated).
+    return serverMessage(error) === null ? NOT_RECOGNISED : DOCUMENT_GONE;
   }
 
   return SERVER_MESSAGE_STATUSES.includes(error.status) ? (serverMessage(error) ?? GENERIC) : GENERIC;
