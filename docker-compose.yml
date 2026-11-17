@@ -1,0 +1,88 @@
+# Scriptorium with Docker: the web page, the API and a local Ollama server.
+#
+#   docker compose up --build      start everything (the first start downloads the model, about 3 GB)
+#   docker compose down            stop and remove the containers; documents and model are kept
+#   docker compose down -v         also remove the documents and the model
+#
+# Then open http://localhost:8080 (change the port with WEB_PORT in a .env file).
+#
+# Optional settings go in a file called .env next to this one. It is ignored by git, never commit it:
+#   WEB_PORT=8080
+#   OLLAMA_MODEL=qwen3.5:4b
+#   ROUTING_CLOUD_ENABLED=false     the cloud model is OFF by default; it needs this on AND a key
+#   ANTHROPIC_API_KEY=              empty by default; a key here can cost money
+name: scriptorium
+
+services:
+  # The local model server. It is not published on the computer: only the API talks to it.
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  # Downloads the model the first time (only if it is missing) and then ends.
+  # The models are in the volume, so a later start does not download anything.
+  ollama-pull:
+    image: ollama/ollama:latest
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if ollama list | grep -q "$$OLLAMA_MODEL"; then
+          echo "Model $$OLLAMA_MODEL is already there."
+        else
+          echo "Downloading model $$OLLAMA_MODEL (the first time only, about 3 GB)..."
+          ollama pull "$$OLLAMA_MODEL"
+        fi
+
+  # The API. It is not published on the computer: the web part forwards /api to it.
+  # It does not wait for the model: while the model is missing, questions get the usual "model not available" message.
+  api:
+    build:
+      context: .
+      dockerfile: src/Scriptorium.API/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      Ollama__BaseUrl: http://ollama:11434
+      Ollama__Model: ${OLLAMA_MODEL:-qwen3.5:4b}
+      ConnectionStrings__Default: Data Source=/data/scriptorium.db
+      Storage__LocalPath: /data/documents
+      # The cloud stays off unless both are set in the .env file.
+      Routing__CloudEnabled: ${ROUTING_CLOUD_ENABLED:-false}
+      Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - scriptorium-data:/data
+
+  # The web page, served by its own container, which forwards /api to the API.
+  # Published on this computer only (127.0.0.1), on a port different from the development ones (4200 and 5034).
+  web:
+    build:
+      context: src/Scriptorium.Web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+
+volumes:
+  # The database and the uploaded files.
+  scriptorium-data:
+  # The downloaded models.
+  ollama-models:

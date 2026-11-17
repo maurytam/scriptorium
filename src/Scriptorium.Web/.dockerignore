@@ -1,0 +1,10 @@
+# What the web image build does not need.
+node_modules/
+dist/
+.angular/
+.git/
+*.md
+.env
+.env.*
+Dockerfile
+.dockerignore

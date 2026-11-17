@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scriptorium on Linux: requirements</title>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --text: #1f2328;
+    --muted: #5b6470;
+    --card: #ffffff;
+    --border: #d9dde3;
+    --accent: #7a4b12;
+    --code-bg: #f1f3f5;
+    --warn-bg: #fff4d6;
+    --warn-border: #e0b341;
+    --ok: #1a7f37;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c;
+      --text: #e6e8eb;
+      --muted: #9aa3ae;
+      --card: #1e2126;
+      --border: #333943;
+      --accent: #e0a85a;
+      --code-bg: #12141a;
+      --warn-bg: #3a2f12;
+      --warn-border: #8a6d1f;
+      --ok: #56d364;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 52rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
+  h1 { font-size: 1.8rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.25rem; margin: 2.2rem 0 .6rem; color: var(--accent); }
+  h3 { font-size: 1rem; margin: 1.2rem 0 .3rem; }
+  p, li { max-width: 46rem; }
+  .lead { color: var(--muted); margin-top: 0; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .8rem 1rem;
+    margin: .8rem 0;
+  }
+  .warn { background: var(--warn-bg); border-color: var(--warn-border); }
+  table { border-collapse: collapse; width: 100%; margin: .6rem 0; }
+  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .9rem; }
+  code { background: var(--code-bg); padding: .1rem .3rem; border-radius: 4px; font-size: .92em; }
+  pre {
+    position: relative;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .7rem 4.2rem .7rem .8rem;
+    overflow-x: auto;
+    margin: .5rem 0;
+  }
+  pre code { background: none; padding: 0; }
+  pre button {
+    position: absolute; top: .4rem; right: .4rem;
+    font: inherit; font-size: .8rem;
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: .15rem .5rem; cursor: pointer;
+  }
+  .ok { color: var(--ok); font-weight: 600; }
+  ol.steps { padding-left: 1.3rem; }
+  ol.steps > li { margin: .5rem 0; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Scriptorium on Linux: what you need</h1>
+<p class="lead">Everything to run Scriptorium with Docker Compose on a Linux machine, for example a Linux virtual machine in VMware Fusion.
+Nothing else has to be installed: no .NET, no Node, no Ollama. The cloud model stays <strong>off</strong> and is never called.</p>
+
+<div class="card warn">
+  <strong>Status:</strong> the Docker files have <strong>never been built or run yet</strong>. The first start is also the first real test:
+  if something fails, copy the last lines of the output and send them to Claude.
+</div>
+
+<h2>1. The machine</h2>
+<table>
+  <tr><th>What</th><th>Minimum</th><th>Why</th></tr>
+  <tr><td>Processors</td><td>4 virtual CPUs</td><td>The model runs on the processor only (no GPU in a virtual machine), so more CPUs mean faster answers</td></tr>
+  <tr><td>Memory</td><td>8 GB of RAM (6 GB free)</td><td>The 4B model needs about 4 to 5 GB; with less the system can kill it</td></tr>
+  <tr><td>Disk</td><td>20 GB free</td><td>Model about 3 GB, images 2 to 3 GB, plus the build and your documents</td></tr>
+  <tr><td>Network</td><td>Internet at the first start</td><td>To download the images and the model. After that it can work offline</td></tr>
+  <tr><td>Browser</td><td>Any, inside the same Linux</td><td>The page is only reachable from the machine it runs on (<code>localhost</code>)</td></tr>
+  <tr><td>Architecture</td><td>x86-64 or ARM64</td><td>All the images used exist for both. ARM64 is what Linux gets in VMware Fusion on an Apple Silicon Mac</td></tr>
+</table>
+
+<h3>In VMware Fusion</h3>
+<ul>
+  <li>With the virtual machine <strong>switched off</strong>: Settings → Processors &amp; Memory. Set 4 or more processors and 8192 MB or more of memory.</li>
+  <li>Settings → Hard Disk: at least 20 GB free inside the system (grow the disk if the Linux install left less).</li>
+</ul>
+
+<h3>Check from a terminal in Linux</h3>
+<pre><code>nproc
+free -h
+df -h /var/lib
+uname -m</code></pre>
+<p><code>nproc</code> is the processors, <code>free -h</code> the memory, <code>df</code> the free disk, <code>uname -m</code> the architecture
+(<code>x86_64</code> or <code>aarch64</code>).</p>
+<p>Only on <code>x86_64</code>: the model is very slow if the virtual machine hides the processor's AVX2 instructions. This must print <code>avx2</code>:</p>
+<pre><code>grep -o -m1 avx2 /proc/cpuinfo</code></pre>
+<p>If it prints nothing, the hypervisor hides the real processor: change the VM's processor settings (Fusion: Processors &amp; Memory →
+Advanced options) or use the ARM64 machine.</p>
+
+<h2>2. Software to install</h2>
+<table>
+  <tr><th>Software</th><th>Why</th><th>Check</th></tr>
+  <tr><td>Docker Engine</td><td>Runs the containers</td><td><code>docker --version</code></td></tr>
+  <tr><td>Docker Compose v2 (the <code>docker compose</code> plugin)</td><td>Starts the set of containers</td><td><code>docker compose version</code></td></tr>
+  <tr><td>Git</td><td>To download the project</td><td><code>git --version</code></td></tr>
+</table>
+<p>Docker Desktop is <strong>not</strong> needed on Linux; Docker Engine is enough. Note the command is <code>docker compose</code>
+with a space, not the old <code>docker-compose</code>.</p>
+
+<h3>Install Docker Engine on Ubuntu</h3>
+<p>For Debian, write <code>debian</code> instead of <code>ubuntu</code> in the two places where it appears in the
+<code>docker.asc</code> line and the <code>deb</code> line. Other distributions: follow the official guide at
+<code>docs.docker.com/engine/install</code>.</p>
+<pre><code>sudo apt-get update
+sudo apt-get install -y ca-certificates curl git
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release &amp;&amp; echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list &gt; /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin</code></pre>
+
+<h3>Let your user run Docker, and start it</h3>
+<pre><code>sudo systemctl enable --now docker
+sudo usermod -aG docker $USER</code></pre>
+<p>Then <strong>log out and log in again</strong> (or run <code>newgrp docker</code> in that terminal). Without this every Docker
+command needs <code>sudo</code> and the start command may fail with "permission denied".</p>
+<pre><code>docker run --rm hello-world</code></pre>
+<p>If it prints "Hello from Docker!", Docker works.</p>
+
+<h2>3. Get the project</h2>
+<pre><code>git clone https://github.com/maurytam/scriptorium.git
+cd scriptorium
+git checkout 010-docker-compose</code></pre>
+<p>The Docker files are on the branch <code>010-docker-compose</code> until it is merged into <code>main</code>. They are
+<code>docker-compose.yml</code>, <code>src/Scriptorium.API/Dockerfile</code>, <code>src/Scriptorium.Web/Dockerfile</code> and
+<code>src/Scriptorium.Web/nginx.conf</code>.</p>
+
+<h2>4. Start, use, stop</h2>
+<ol class="steps">
+  <li><strong>Start</strong> (from the project folder):
+    <pre><code>docker compose up --build</code></pre>
+    The first time it downloads the base images, builds the API and the web page, and then downloads the model (about 3 GB).
+    This takes many minutes and the terminal shows the progress. A line from the <code>ollama-pull</code> service says
+    <em>Downloading model qwen3.5:4b</em> and later that service ends by itself. Leave the terminal open (or add <code>-d</code>
+    to run in the background and follow the download with <code>docker compose logs -f ollama-pull</code>).
+  </li>
+  <li><strong>Open</strong> <code>http://localhost:8080</code> in the browser inside Linux. The page with the upload area appears.</li>
+  <li><strong>Try it</strong> with a small <em>fake</em> text file (never a real document): upload it, wait for <em>Ready</em>,
+    press <em>Ask</em>, then ask a question, <em>Summarise</em> and <em>Extract entities</em>. Answers say
+    <em>Answered on this computer</em>. Until the model download ends, questions say the model is not available: that is normal.</li>
+  <li><strong>Stop</strong> (<code>Ctrl+C</code> in the terminal, or from another one):
+    <pre><code>docker compose stop</code></pre>
+  </li>
+</ol>
+
+<h3>Everything you may need to type later</h3>
+<table>
+  <tr><th>Command</th><th>What it does</th></tr>
+  <tr><td><code>docker compose up --build</code></td><td>Build and start everything. The documents and the model are kept</td></tr>
+  <tr><td><code>docker compose up -d</code></td><td>Start in the background, without rebuilding</td></tr>
+  <tr><td><code>docker compose ps</code></td><td>Which parts are running (<code>ollama-pull</code> is expected to be finished)</td></tr>
+  <tr><td><code>docker compose logs -f api</code></td><td>Follow the messages of one part (<code>api</code>, <code>web</code>, <code>ollama</code>, <code>ollama-pull</code>)</td></tr>
+  <tr><td><code>docker compose exec ollama ollama list</code></td><td>Shows that the model is downloaded</td></tr>
+  <tr><td><code>docker compose stop</code></td><td>Stop, keep the containers</td></tr>
+  <tr><td><code>docker compose down</code></td><td>Stop and remove the containers. <strong>Documents and model are kept</strong></td></tr>
+  <tr><td><code>docker compose down -v</code></td><td>Also <strong>delete the documents and the model</strong> (the next start downloads it again)</td></tr>
+</table>
+
+<h2>5. Settings (optional)</h2>
+<p>Put them in a file called <code>.env</code> next to <code>docker-compose.yml</code>. Git ignores it, so it is never committed.</p>
+<pre><code>WEB_PORT=8080
+OLLAMA_MODEL=qwen3.5:4b
+ROUTING_CLOUD_ENABLED=false
+ANTHROPIC_API_KEY=</code></pre>
+<ul>
+  <li><code>WEB_PORT</code>: the address of the page, if 8080 is taken.</li>
+  <li><code>OLLAMA_MODEL</code>: the model to download and use.</li>
+  <li>The cloud is <strong>off</strong>. It would need <code>ROUTING_CLOUD_ENABLED=true</code> <em>and</em> a key, and it can cost money.
+    Leave both as they are.</li>
+</ul>
+
+<h2>6. If something goes wrong</h2>
+<table>
+  <tr><th>What you see</th><th>What to do</th></tr>
+  <tr><td><code>permission denied ... /var/run/docker.sock</code></td><td>Your user is not in the <code>docker</code> group, or you did not log in again after adding it (section 2)</td></tr>
+  <tr><td><code>unknown shorthand flag ... docker compose</code> or <code>'compose' is not a docker command</code></td><td>The Compose plugin is missing: <code>sudo apt-get install -y docker-compose-plugin</code></td></tr>
+  <tr><td><code>port is already allocated</code> / <code>address already in use</code></td><td>Something uses 8080. See who: <code>sudo ss -ltnp | grep 8080</code>. Or set another <code>WEB_PORT</code> in <code>.env</code></td></tr>
+  <tr><td>The build fails while downloading packages</td><td>No internet or a proxy. Try again; the part already built is kept</td></tr>
+  <tr><td>The model download stops or the machine is offline</td><td>Run again <code>docker compose up ollama-pull</code>; it resumes. The rest of the app (upload, list, text) works meanwhile</td></tr>
+  <tr><td>Questions always say the model is not available</td><td>Check the model: <code>docker compose exec ollama ollama list</code>. If empty, the download did not finish (see above). Look at <code>docker compose logs ollama</code></td></tr>
+  <tr><td>The <code>ollama</code> part keeps restarting or the machine freezes</td><td>Not enough memory. Give the VM more RAM (section 1). Confirm with <code>sudo dmesg | grep -i -E "killed process|out of memory"</code></td></tr>
+  <tr><td>The page shows <em>502 Bad Gateway</em></td><td>The API is not up. <code>docker compose logs api</code> and send the last lines to Claude</td></tr>
+  <tr><td>Answers take very long, then say the model did not answer in time</td><td>A processor-only model is slow; the app waits 120 seconds. Tell Claude: the setting can be exposed in the <code>.env</code></td></tr>
+  <tr><td>Disk full</td><td><code>docker system df</code> shows the space used. <code>docker image prune</code> removes unused images (the data is not touched)</td></tr>
+</table>
+
+<h2>7. Quick checklist</h2>
+<ul>
+  <li><span class="ok">☐</span> 4+ CPUs, 8 GB RAM, 20 GB disk; on x86 <code>avx2</code> is printed</li>
+  <li><span class="ok">☐</span> <code>docker run --rm hello-world</code> works without <code>sudo</code></li>
+  <li><span class="ok">☐</span> <code>docker compose version</code> answers</li>
+  <li><span class="ok">☐</span> the project is cloned and the branch is <code>010-docker-compose</code></li>
+  <li><span class="ok">☐</span> <code>docker compose up --build</code> reaches the model download and then the page opens at <code>http://localhost:8080</code></li>
+  <li><span class="ok">☐</span> a fake file is uploaded, a question is answered with <em>Answered on this computer</em></li>
+  <li><span class="ok">☐</span> after <code>docker compose down</code> and a new start, the file is still listed and the model is not downloaded again</li>
+</ul>
+
+</main>
+<script>
+  // A "Copy" button on every block of commands. Without it the page still reads fine.
+  document.querySelectorAll('pre').forEach(function (block) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Copy';
+    button.addEventListener('click', function () {
+      var text = block.querySelector('code').innerText;
+      try {
+        navigator.clipboard.writeText(text).then(function () {
+          button.textContent = 'Copied';
+          setTimeout(function () { button.textContent = 'Copy'; }, 1500);
+        });
+      } catch (e) {
+        button.textContent = 'Select and copy';
+      }
+    });
+    block.appendChild(button);
+  });
+</script>
+</body>
+</html>

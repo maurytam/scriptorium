@@ -1,0 +1,20 @@
+# What the API image build does not need. Documents the person uploaded (App_Data) must never get into an image.
+**/bin/
+**/obj/
+**/App_Data/
+**/node_modules/
+**/dist/
+.git/
+.github/
+.idea/
+.claude/
+.specify/
+.tokensave/
+specs/
+docs/
+tests/
+*.md
+*.user
+.env
+.env.*
+docker-compose*.yml
