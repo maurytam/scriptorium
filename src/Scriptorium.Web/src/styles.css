@@ -572,6 +572,40 @@ progress:not([value])::-webkit-progress-bar {
   font-size: 0.8rem;
 }
 
+.summary {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.summary h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+}
+
+.summary p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.summary .notice {
+  padding: 0.65rem 0.9rem;
+  color: var(--wait-ink);
+  font-size: 0.9rem;
+  background: var(--wait-bg);
+  border-radius: var(--radius);
+}
+
+.summary .backend {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .ask-send {
   display: flex;
   gap: 0.75rem;

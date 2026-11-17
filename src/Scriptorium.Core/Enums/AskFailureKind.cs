@@ -10,5 +10,8 @@ public enum AskFailureKind
     Internal,
 
     /// <summary>The preference cannot be used for this document (Cloud for a private one).</summary>
-    PreferenceNotAllowed
+    PreferenceNotAllowed,
+
+    /// <summary>The document has too little text to be summarised.</summary>
+    NotEnoughText
 }

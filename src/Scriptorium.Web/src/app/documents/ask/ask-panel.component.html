@@ -3,7 +3,7 @@
     <header class="ask-header">
       <h2>Ask about <span class="ask-document">{{ doc.fileName }}</span></h2>
       <div class="ask-actions">
-        @if (transcript().length > 0) {
+        @if (transcript().length > 0 || summary()) {
           <button type="button" class="secondary" (click)="newConversation()">New conversation</button>
         }
         <button type="button" class="secondary" (click)="close()">Close</button>
@@ -15,6 +15,19 @@
         Ask anything about this document. Answers come only from its text. They are worked out on your computer,
         unless Cloud is chosen or Auto picks it for a complex question.
       </p>
+    }
+
+    @if (summary(); as result) {
+      <article class="summary" aria-label="Summary">
+        <h3>Summary</h3>
+        @if (result.truncated) {
+          <p class="notice" role="note">
+            This summary is based only on the first part of the document, which is too long to be read in full.
+          </p>
+        }
+        <p class="summary-text">{{ result.summary }}</p>
+        <p class="backend">{{ backendLabel(result) }}</p>
+      </article>
     }
 
     @if (transcript().length > 0) {
@@ -66,6 +79,7 @@
             <option value="cloud" [selected]="preference() === 'cloud'">Cloud</option>
           </select>
         </label>
+        <button type="button" class="secondary" [disabled]="waiting()" (click)="summarize()">Summarise</button>
         <button type="submit" [disabled]="!canSend()">Send</button>
       </div>
       @if (maxQuestionLength(); as max) {

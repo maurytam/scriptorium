@@ -9,6 +9,7 @@ import {
   AskResponse,
   DocumentDetails,
   DocumentSummary,
+  SummaryResponse,
   TextPreview,
   UploadEvent,
   UploadLimits,
@@ -57,6 +58,11 @@ export class DocumentApiService {
     preference: AskPreference = 'auto',
   ): Observable<AskResponse> {
     return this.http.post<AskResponse>(`${DOCUMENTS_URL}/${id}/ask`, { question, history, preference });
+  }
+
+  /** A short summary of a ready document, written by the model the preference allows. Nothing is stored. */
+  summarize(id: string, preference: AskPreference = 'auto'): Observable<SummaryResponse> {
+    return this.http.post<SummaryResponse>(`${DOCUMENTS_URL}/${id}/summary`, { preference });
   }
 
   /** The extracted text of a ready document, already cut by the server; read-only. */

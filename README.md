@@ -50,6 +50,12 @@ something you can question, summarize and mine for entities.
   **Cloud**, and every answer says where it came from ("Answered on this computer" or "Answered by the cloud model").
   Auto sends a question to the cloud only when it looks demanding (a simple, explainable score) **and** the cloud is switched on.
   Cloud chosen while the cloud is off, or for a private document, gives a clear message and nothing is sent anywhere.
+- 📝 **Summarises a document.** A **Summarise** button next to **Send** in the question panel writes one short paragraph
+  (three to five sentences) from the document's text, in the language of the document. It reads the same first part of the
+  text the questions read and says so when the document is longer ("This summary is based only on the first part…").
+  A summary is produced each time you ask and **nothing is stored**. It uses the same **Answer with** selector and the same
+  rules as the questions, and says where it came from ("Answered on this computer" or "Answered by the cloud model").
+  A document with almost no text (under 50 characters) is not summarised.
 - 🏠 **Runs on your machine.** With the settings you get out of the box the cloud is **off**: questions and document text go
   only to the local [Ollama](https://ollama.com) server, nothing leaves your computer and nothing costs anything.
 
@@ -59,7 +65,7 @@ something you can question, summarize and mine for entities.
 |---|---|---|
 | ✅ | Document upload and parsing | Done |
 | ✅ | Ask questions about a document | Done |
-| ⬜ | Summaries | Planned |
+| ✅ | Summaries | Done |
 | ⬜ | Entity extraction | Planned |
 | ✅ | Model router: private documents → local **Ollama**, complex tasks → **Claude API**, manual override | Done; the cloud side is built but **off by default** and has never called the real service |
 | ⬜ | Docker Compose setup (with an Ollama service) | Planned |
@@ -137,6 +143,7 @@ the cloud is still treated as not available. Using it costs money on your Anthro
 | `DELETE` | `/api/documents/{id}` | Delete a document (`409` while it is still processing) |
 | `GET` | `/api/documents/limits` | Upload limits enforced by the server |
 | `POST` | `/api/documents/{id}/ask` | Ask a question about a ready document (JSON: `question`, optional `history` of earlier exchanges, optional `preference`: `auto`, `local` or `cloud`). `200` with `answer`, `truncated` and `backend` (`local` or `cloud`), or `400` invalid question or preference, `404` unknown document, `409` document not ready or Cloud chosen for a private document, `503` the model (Ollama, or the cloud when chosen) not available, `504` no answer in time |
+| `POST` | `/api/documents/{id}/summary` | Summarise a ready document: one short paragraph, nothing stored (optional JSON body with `preference`: `auto`, `local` or `cloud`; no body is `auto`). `200` with `summary`, `truncated` and `backend` (`local` or `cloud`), or `400` invalid preference, `404` unknown document, `409` document not ready, too little text to summarise, or Cloud chosen for a private document, `503` the model not available, `504` no answer in time. See [the contract](specs/006-summaries/contracts/summary-api.md) |
 | `GET` | `/api/documents/ask/limits` | Longest accepted question, from `Qa:MaxQuestionLength` (the web page uses it for its character counter) |
 
 The full contracts are in [`specs/001-document-upload-parsing/contracts/documents-api.md`](specs/001-document-upload-parsing/contracts/documents-api.md),
@@ -195,7 +202,8 @@ Everything for the first feature, document upload and parsing, lives in
 plan, research, data model, API contracts, quickstart, task list and validation results.
 The second feature, asking questions about a document, is in
 [`specs/002-ask-document-questions/`](specs/002-ask-document-questions/). The model router is in
-[`specs/005-model-router/`](specs/005-model-router/).
+[`specs/005-model-router/`](specs/005-model-router/) and the summaries in
+[`specs/006-summaries/`](specs/006-summaries/).
 
 Each feature is built on its own branch and merged through a pull request. Project conventions
 are in [`Claude.md`](Claude.md).
