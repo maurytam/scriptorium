@@ -15,6 +15,15 @@ describe('describeAskFailure', () => {
     );
   });
 
+  it('does not say the document is gone when the API has no such route (a 404 with no API error in the body)', () => {
+    const notRecognised = 'The server did not recognise this request. Check that the API is up to date and running, then try again.';
+
+    expect(describeAskFailure(failure(404))).toBe(notRecognised);
+    expect(describeAskFailure(failure(404, ''))).toBe(notRecognised);
+    expect(describeAskFailure(failure(404, '<html>Not Found</html>'))).toBe(notRecognised);
+    expect(describeAskFailure(failure(404, { title: 'Not Found' }))).toBe(notRecognised);
+  });
+
   it('shows what the server said for an invalid question', () => {
     expect(describeAskFailure(failure(400, { error: 'The question is empty.' }))).toBe('The question is empty.');
   });
