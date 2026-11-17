@@ -266,7 +266,34 @@ Standalone Angular components with signals, no state library.
 Components are thin views: the cut, the limits and the rules live on the server. In development `ng serve` proxies `/api` to
 the API on port 5034.
 
-## 7. The model router
+## 7. Running with Docker
+
+`docker-compose.yml` runs the same code in containers. It changes no behaviour: it only sets where Ollama and the data are
+(environment variables of the same settings the README lists).
+
+```mermaid
+flowchart LR
+    Browser["Browser<br/>localhost:8080"] --> Web["web<br/>nginx + Angular build"]
+    Web -->|/api| API["api<br/>ASP.NET Core, not published"]
+    API --> Ollama["ollama<br/>not published"]
+    Pull["ollama-pull<br/>ends when the model is there"] --> Ollama
+    API --- Data[("volume scriptorium-data<br/>/data: SQLite + files")]
+    Ollama --- Models[("volume ollama-models")]
+```
+
+| Part | Role |
+|---|---|
+| `web` | Built from `src/Scriptorium.Web/Dockerfile`: the Angular app compiled once and served by nginx. It is the only part published on the computer (`127.0.0.1:${WEB_PORT:-8080}`). `nginx.conf` forwards `/api` to the API, never refuses an upload (the API has its own limit) and waits up to 600 seconds for an answer, more than the API's own time limit for the model. The API's address is looked up again every 10 seconds, so a rebuilt API is found |
+| `api` | Built from `src/Scriptorium.API/Dockerfile` (the context is the project root, since it needs Core and Infrastructure) and run as a non-root user. It sets `Ollama__BaseUrl=http://ollama:11434`, the database and the files under `/data`, and the cloud off. It does not wait for the model: while it is missing, questions get the usual "model not available" message |
+| `ollama` | The official image, not published; models in the `ollama-models` volume |
+| `ollama-pull` | A start-up step: if the configured model is not in `ollama list` it runs `ollama pull`, then it ends. A later start finds the model and downloads nothing |
+
+- **Data** lives in the two volumes, never in the project folder; only `docker compose down -v` removes them.
+- **Cloud:** `Routing__CloudEnabled` and `Anthropic__ApiKey` come from an untracked `.env`; the delivered values are off and empty.
+- **Images** never contain uploaded documents or secrets: the `.dockerignore` files leave out `App_Data`, `.env` and the build folders.
+- **Status:** written but not yet built or run on a real machine. The decisions are in `specs/008-docker-compose/spec.md`.
+
+## 8. The model router
 
 `ModelRouter` (in Core) is the **only place that chooses** between the local model and the cloud model. It compares facts and
 hands a provider back; it never calls one. The rules, in this order:

@@ -74,7 +74,7 @@ something you can question, summarize and mine for entities.
 | ✅ | Summaries | Done |
 | ✅ | Entity extraction | Done |
 | ✅ | Model router: private documents → local **Ollama**, complex tasks → **Claude API**, manual override | Done; the cloud side is built but **off by default** and has never called the real service |
-| ⬜ | Docker Compose setup (with an Ollama service) | Planned |
+| ✅ | Docker Compose setup (with an Ollama service) | Done; the files have not been run on a real machine yet, the first start is still to be checked |
 
 Scriptorium is single-user and local-first: no authentication, no multi-tenancy, no cloud storage.
 
@@ -104,6 +104,40 @@ npm start
 
 Open <http://localhost:4200>. The dev server proxies `/api` to the API, and the database is
 created and migrated automatically on first start.
+
+## 🐳 With Docker
+
+An alternative to the setup above that needs **only Docker** (with Compose v2): no .NET, no Node, no Ollama on your computer.
+One command starts the web page, the API and a local Ollama server.
+
+> **Status:** these files are written but have not been built or run on a real machine yet. If the first start fails, the output
+> says where; [`linux-requirements.html`](linux-requirements.html) lists what a Linux machine needs.
+
+```bash
+git clone https://github.com/maurytam/scriptorium.git
+cd scriptorium
+docker compose up --build
+```
+
+Then open <http://localhost:8080>. The page is published on your own computer only (`127.0.0.1`), on a port different from the
+development ones (4200 and 5034), so both setups can run at the same time.
+
+- **First start:** it builds the images and downloads the model `qwen3.5:4b` (about 3 GB) by itself, only if it is missing, and the
+  progress is in the output. While the model is missing questions say it is not available; the rest of the app works. Later starts
+  download nothing.
+- **Stop:** `Ctrl+C`, or `docker compose stop`. `docker compose down` also removes the containers; the documents and the model are kept.
+- **Where the data lives:** in Docker volumes (`scriptorium-data` for the database and the uploaded files, `ollama-models` for the
+  models), never in the project folder, so nothing can be committed by mistake. `docker compose down -v` **deletes them**; the next start
+  begins empty and downloads the model again.
+- **Another port:** put `WEB_PORT=8081` (for example) in a file called `.env` next to `docker-compose.yml`. Git ignores `.env`.
+  `OLLAMA_MODEL` in the same file changes the model.
+- **The cloud is off.** It needs `ROUTING_CLOUD_ENABLED=true` **and** `ANTHROPIC_API_KEY=...` in the `.env` file, and it costs money;
+  leave both out. Never commit that file.
+- **No GPU:** inside Docker the model runs on the processor only. On a Mac, Docker cannot use the graphics chip, so it is clearly slower
+  than the Ollama installed on the computer (the setup above), which does use it. An answer that takes longer than `Ollama:TimeoutSeconds`
+  (120 seconds) gives the "model did not answer in time" message.
+- **Using Docker does not change anything of the setup above:** the same code and settings, only the containers set where Ollama and
+  the data are.
 
 ## ⚙️ Configuration
 
@@ -169,6 +203,7 @@ tests/
 ├── Scriptorium.Core.Tests/
 └── Scriptorium.Infrastructure.Tests/   unit tests and in-process API integration tests
 specs/                            specification, plan, contracts and task list
+docker-compose.yml                web + api + ollama in containers (see "With Docker")
 ```
 
 - **Clean Architecture:** `Core` depends on nothing; everything else goes through interfaces defined there.
@@ -211,7 +246,8 @@ The second feature, asking questions about a document, is in
 [`specs/002-ask-document-questions/`](specs/002-ask-document-questions/). The model router is in
 [`specs/005-model-router/`](specs/005-model-router/), the summaries in
 [`specs/006-summaries/`](specs/006-summaries/) and the entity extraction in
-[`specs/007-entity-extraction/`](specs/007-entity-extraction/).
+[`specs/007-entity-extraction/`](specs/007-entity-extraction/). The Docker setup is in
+[`specs/008-docker-compose/`](specs/008-docker-compose/) (specification only: its plan and tasks were skipped).
 
 Each feature is built on its own branch and merged through a pull request. Project conventions
 are in [`Claude.md`](Claude.md).

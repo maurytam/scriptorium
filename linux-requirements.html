@@ -152,11 +152,10 @@ command needs <code>sudo</code> and the start command may fail with "permission 
 
 <h2>3. Get the project</h2>
 <pre><code>git clone https://github.com/maurytam/scriptorium.git
-cd scriptorium
-git checkout 010-docker-compose</code></pre>
-<p>The Docker files are on the branch <code>010-docker-compose</code> until it is merged into <code>main</code>. They are
+cd scriptorium</code></pre>
+<p>The Docker files are already on <code>main</code>, so no other branch is needed. They are
 <code>docker-compose.yml</code>, <code>src/Scriptorium.API/Dockerfile</code>, <code>src/Scriptorium.Web/Dockerfile</code> and
-<code>src/Scriptorium.Web/nginx.conf</code>.</p>
+<code>src/Scriptorium.Web/nginx.conf</code>. The same steps are in the README, section "With Docker".</p>
 
 <h2>4. Start, use, stop</h2>
 <ol class="steps">
@@ -222,7 +221,7 @@ ANTHROPIC_API_KEY=</code></pre>
   <li><span class="ok">☐</span> 4+ CPUs, 8 GB RAM, 20 GB disk; on x86 <code>avx2</code> is printed</li>
   <li><span class="ok">☐</span> <code>docker run --rm hello-world</code> works without <code>sudo</code></li>
   <li><span class="ok">☐</span> <code>docker compose version</code> answers</li>
-  <li><span class="ok">☐</span> the project is cloned and the branch is <code>010-docker-compose</code></li>
+  <li><span class="ok">☐</span> the project is cloned (the <code>main</code> branch is enough)</li>
   <li><span class="ok">☐</span> <code>docker compose up --build</code> reaches the model download and then the page opens at <code>http://localhost:8080</code></li>
   <li><span class="ok">☐</span> a fake file is uploaded, a question is answered with <em>Answered on this computer</em></li>
   <li><span class="ok">☐</span> after <code>docker compose down</code> and a new start, the file is still listed and the model is not downloaded again</li>
