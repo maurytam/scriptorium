@@ -82,7 +82,7 @@ something you can question, summarize and mine for entities.
 | ✅ | Summaries | Done |
 | ✅ | Entity extraction | Done |
 | ✅ | Model router: private documents → local **Ollama**, complex tasks → **Claude API**, manual override | Done; the cloud side is built but **off by default** and has never called the real service |
-| ✅ | Docker Compose setup (with an Ollama service) | Done; the files have not been run on a real machine yet, the first start is still to be checked |
+| ✅ | Docker Compose setup (with an Ollama service) | Done; tested on Linux |
 
 Scriptorium is single-user and local-first: no authentication, no multi-tenancy, no cloud storage.
 
@@ -118,8 +118,8 @@ created and migrated automatically on first start.
 An alternative to the setup above that needs **only Docker** (with Compose v2): no .NET, no Node, no Ollama on your computer.
 One command starts the web page, the API and a local Ollama server.
 
-> **Status:** these files are written but have not been built or run on a real machine yet. If the first start fails, the output
-> says where; [`linux-requirements.html`](linux-requirements.html) lists what a Linux machine needs.
+> **Status:** tested on Linux, where it builds and runs; it has not been tried on macOS or Windows yet. If the first start fails,
+> the output says where; [`linux-requirements.html`](linux-requirements.html) lists what a Linux machine needs.
 
 ```bash
 git clone https://github.com/maurytam/scriptorium.git
